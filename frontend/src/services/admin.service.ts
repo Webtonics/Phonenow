@@ -124,7 +124,7 @@ export const adminService = {
     page?: number;
     per_page?: number;
     user_id?: number;
-    type?: 'phone' | 'smm';
+    type?: 'phone_number' | 'esim';
     status?: string;
     date_from?: string;
     date_to?: string;
@@ -137,7 +137,7 @@ export const adminService = {
    * Get all services
    */
   getServices: async (params: {
-    category?: 'phone_number' | 'smm';
+    category?: 'phone_number' | 'esim';
     is_active?: boolean;
   } = {}): Promise<ApiResponse<Service[]>> => {
     const response = await api.get('/admin/services', { params });
@@ -149,8 +149,8 @@ export const adminService = {
    */
   createService: async (data: {
     name: string;
-    category: 'phone_number' | 'smm';
-    provider: '5sim' | 'peakerr';
+    category: 'phone_number' | 'esim';
+    provider: '5sim' | 'zendit';
     provider_service_code: string;
     cost_price: number;
     retail_price: number;
@@ -222,13 +222,18 @@ export const adminService = {
    * Get pricing settings
    */
   getPricingSettings: async (): Promise<ApiResponse<{
+    usd_to_ngn_rate: number;
     phone_markup_percentage: number;
-    phone_exchange_rate: number;
     phone_min_price: number;
     phone_platform_fee: number;
-    smm_markup_percentage: number;
     min_deposit: number;
     max_deposit: number;
+    exchange_rate_info?: {
+      rate: number;
+      source: string;
+      is_configured: boolean;
+      default_rate: number;
+    };
   }>> => {
     const response = await api.get('/admin/pricing');
     return response.data;
@@ -238,11 +243,10 @@ export const adminService = {
    * Update pricing settings
    */
   updatePricingSettings: async (data: {
+    usd_to_ngn_rate?: number;
     phone_markup_percentage?: number;
-    phone_exchange_rate?: number;
     phone_min_price?: number;
     phone_platform_fee?: number;
-    smm_markup_percentage?: number;
     min_deposit?: number;
     max_deposit?: number;
   }): Promise<ApiResponse<Record<string, unknown>>> => {

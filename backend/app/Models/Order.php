@@ -19,7 +19,11 @@ class Order extends Model
         'amount_paid',
         'provider',
         'provider_order_id',
+        'provider_metadata',
         'phone_number',
+        'product_name',
+        'country_code',
+        'operator',
         'sms_code',
         'sms_text',
         'smm_link',
@@ -40,6 +44,7 @@ class Order extends Model
             'smm_remains' => 'integer',
             'completed_at' => 'datetime',
             'expires_at' => 'datetime',
+            'provider_metadata' => 'array',
         ];
     }
 

@@ -2,122 +2,81 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Log;
 
 class ExchangeRateService
 {
     /**
-     * Get current USD to NGN exchange rate
-     * Uses exchangerate-api.com (free tier: 1,500 requests/month)
-     * Falls back to cached rate or default if API fails
+     * Default fallback rate if not configured
+     */
+    protected const DEFAULT_RATE = 1600.0;
+
+    /**
+     * Get current USD to NGN exchange rate (manual only)
+     *
+     * This rate is used for converting API costs (in USD) to NGN for billing.
+     * The rate must be set manually in admin settings.
      */
     public function getUsdToNgnRate(): float
     {
-        try {
-            // Cache for 1 hour (rates don't change that frequently)
-            return Cache::remember('usd_to_ngn_rate', 3600, function () {
-                // Try primary API - exchangerate-api.com (free, no key required for USD)
-                $rate = $this->fetchFromExchangeRateApi();
+        $rate = (float) Setting::getValue('usd_to_ngn_rate', 0);
 
-                if ($rate) {
-                    Log::info('Exchange rate fetched successfully', ['rate' => $rate, 'source' => 'exchangerate-api']);
-                    return $rate;
-                }
-
-                // Fallback to CBN (Central Bank of Nigeria) if available
-                $rate = $this->fetchFromCBN();
-
-                if ($rate) {
-                    Log::info('Exchange rate fetched from CBN', ['rate' => $rate]);
-                    return $rate;
-                }
-
-                // Final fallback to reasonable default
-                Log::warning('Using fallback exchange rate');
-                return $this->getFallbackRate();
-            });
-        } catch (\Exception $e) {
-            Log::error('Exchange rate fetch failed', ['error' => $e->getMessage()]);
-            return $this->getFallbackRate();
-        }
-    }
-
-    /**
-     * Fetch rate from exchangerate-api.com
-     */
-    protected function fetchFromExchangeRateApi(): ?float
-    {
-        try {
-            $response = Http::timeout(5)->get('https://api.exchangerate-api.com/v4/latest/USD');
-
-            if ($response->successful()) {
-                $data = $response->json();
-                if (isset($data['rates']['NGN'])) {
-                    return (float) $data['rates']['NGN'];
-                }
-            }
-        } catch (\Exception $e) {
-            Log::warning('ExchangeRate API failed', ['error' => $e->getMessage()]);
+        if ($rate <= 0) {
+            Log::warning('USD to NGN rate not configured, using default', [
+                'default_rate' => self::DEFAULT_RATE,
+            ]);
+            return self::DEFAULT_RATE;
         }
 
-        return null;
+        return $rate;
     }
 
     /**
-     * Fetch rate from CBN (backup)
+     * Set the USD to NGN exchange rate
      */
-    protected function fetchFromCBN(): ?float
+    public function setRate(float $rate): void
     {
-        try {
-            // CBN doesn't have a public API, but we can try other free APIs
-            $response = Http::timeout(5)->get('https://open.er-api.com/v6/latest/USD');
-
-            if ($response->successful()) {
-                $data = $response->json();
-                if (isset($data['rates']['NGN'])) {
-                    return (float) $data['rates']['NGN'];
-                }
-            }
-        } catch (\Exception $e) {
-            Log::warning('Backup exchange API failed', ['error' => $e->getMessage()]);
+        if ($rate <= 0) {
+            throw new \InvalidArgumentException('Exchange rate must be greater than 0');
         }
 
-        return null;
+        Setting::setValue('usd_to_ngn_rate', $rate, 'float', 'pricing', 'USD to NGN exchange rate for phone number pricing');
+
+        Log::info('USD to NGN exchange rate updated', ['rate' => $rate]);
     }
 
     /**
-     * Get fallback rate (updated periodically based on market rates)
+     * Check if the rate has been manually configured
      */
-    protected function getFallbackRate(): float
+    public function isConfigured(): bool
     {
-        // Conservative fallback rate (updated: Jan 2025)
-        // Check current rates at: https://www.xe.com/currency-converter/usd-to-ngn
-        return 1600.0;
+        $rate = (float) Setting::getValue('usd_to_ngn_rate', 0);
+        return $rate > 0;
     }
 
     /**
-     * Clear cached exchange rate (useful for manual refresh)
-     */
-    public function clearCache(): void
-    {
-        Cache::forget('usd_to_ngn_rate');
-    }
-
-    /**
-     * Get exchange rate info with metadata
+     * Get exchange rate info for admin display
      */
     public function getRateInfo(): array
     {
         $rate = $this->getUsdToNgnRate();
-        $cacheKey = 'usd_to_ngn_rate';
+        $isConfigured = $this->isConfigured();
 
         return [
             'rate' => $rate,
-            'cached' => Cache::has($cacheKey),
-            'cache_expires_in_seconds' => Cache::has($cacheKey) ? 3600 : 0,
+            'source' => $isConfigured ? 'manual' : 'default',
+            'is_configured' => $isConfigured,
+            'default_rate' => self::DEFAULT_RATE,
             'last_updated' => now()->toDateTimeString(),
         ];
+    }
+
+    /**
+     * Get the default rate (for reference)
+     */
+    public function getDefaultRate(): float
+    {
+        return self::DEFAULT_RATE;
     }
 }

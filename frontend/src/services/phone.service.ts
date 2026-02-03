@@ -57,6 +57,14 @@ interface PurchaseResponse {
   balance: number;
 }
 
+interface OperatorPrice {
+  id: string;
+  price: number;
+  base_price: number;
+  available: number;
+  success_rate: number;
+}
+
 export const phoneService = {
   /**
    * Get available countries
@@ -81,6 +89,16 @@ export const phoneService = {
     const params: Record<string, string> = { country };
     if (product) params.product = product;
     return api.get<ApiResponse<Record<string, unknown>>>('/phone/prices', { params });
+  },
+
+  /**
+   * Get operator prices for a specific service
+   * Returns different pricing options based on operators
+   */
+  getOperatorPrices: async (country: string, product: string) => {
+    return api.get<ApiResponse<OperatorPrice[]>>('/phone/operator-prices', {
+      params: { country, product },
+    });
   },
 
   /**

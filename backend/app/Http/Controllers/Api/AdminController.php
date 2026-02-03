@@ -635,13 +635,20 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'phone_markup_percentage' => Setting::getValue('phone_markup_percentage', 1000),
+                // Exchange Rate (USD to NGN) - This is the main rate for converting API costs to NGN
+                'usd_to_ngn_rate' => Setting::getValue('usd_to_ngn_rate', 1600),
+
+                // Phone Number Pricing
+                'phone_markup_percentage' => Setting::getValue('phone_markup_percentage', 200),
                 'phone_min_price' => Setting::getValue('phone_min_price', 500),
                 'phone_platform_fee' => Setting::getValue('phone_platform_fee', 0),
-                'smm_markup_percentage' => Setting::getValue('smm_markup_percentage', 500),
+
+                // Deposit Limits
                 'min_deposit' => Setting::getValue('min_deposit', 1000),
                 'max_deposit' => Setting::getValue('max_deposit', 1000000),
-                'current_exchange_rate' => $this->exchangeRateService->getUsdToNgnRate(),
+
+                // Read-only info
+                'exchange_rate_info' => $this->exchangeRateService->getRateInfo(),
             ],
         ]);
     }
@@ -652,10 +659,15 @@ class AdminController extends Controller
     public function updatePricingSettings(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'phone_markup_percentage' => ['sometimes', 'numeric', 'min:100', 'max:10000'],
+            // Exchange rate: 1 USD = X NGN (e.g., 1600)
+            'usd_to_ngn_rate' => ['sometimes', 'numeric', 'min:100', 'max:10000'],
+
+            // Markup: percentage to add to cost (e.g., 200 = 2x, 300 = 3x)
+            'phone_markup_percentage' => ['sometimes', 'numeric', 'min:100', 'max:5000'],
             'phone_min_price' => ['sometimes', 'numeric', 'min:0', 'max:100000'],
             'phone_platform_fee' => ['sometimes', 'numeric', 'min:0', 'max:10000'],
-            'smm_markup_percentage' => ['sometimes', 'numeric', 'min:100', 'max:10000'],
+
+            // Deposit limits
             'min_deposit' => ['sometimes', 'numeric', 'min:100'],
             'max_deposit' => ['sometimes', 'numeric', 'min:1000'],
         ]);
@@ -663,6 +675,9 @@ class AdminController extends Controller
         foreach ($validated as $key => $value) {
             Setting::setValue($key, $value, 'float', 'pricing');
         }
+
+        // Clear any cached exchange rate data
+        Setting::clearCache();
 
         return response()->json([
             'success' => true,

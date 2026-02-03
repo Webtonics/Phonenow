@@ -1,9 +1,14 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\ESIMAdminController;
+use App\Http\Controllers\Api\Admin\ReferralAdminController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ESIMController;
 use App\Http\Controllers\Api\PhoneController;
+use App\Http\Controllers\Api\ReferralController;
 use App\Http\Controllers\Api\WalletController;
+use App\Http\Controllers\Api\Webhooks\ZenditWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -11,6 +16,18 @@ use Illuminate\Support\Facades\Route;
 | API Routes
 |--------------------------------------------------------------------------
 */
+
+// ==========================================================================
+// WEBHOOK ROUTES (Public - No Authentication Required)
+// ==========================================================================
+// These routes must be public as they receive callbacks from external services
+
+Route::prefix('webhooks')->group(function () {
+    // Zendit eSIM webhooks
+    // HEAD request for verification, POST for actual webhook data
+    Route::match(['get', 'head'], '/zendit/esim', [ZenditWebhookController::class, 'verify']);
+    Route::post('/zendit/esim', [ZenditWebhookController::class, 'handleEsim']);
+});
 
 // Public authentication routes
 Route::prefix('auth')->group(function () {
@@ -21,8 +38,10 @@ Route::prefix('auth')->group(function () {
     Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
 });
 
-// Public test endpoint for debugging 5SIM API
-Route::get('/phone/test-5sim', [PhoneController::class, 'test5SIM']);
+// Public test endpoint for debugging SMS providers
+Route::get('/phone/test-provider', [PhoneController::class, 'testProvider']);
+Route::get('/phone/providers', [PhoneController::class, 'getProviders']);
+Route::post('/phone/clear-cache', [PhoneController::class, 'clearCache']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -30,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/user', [AuthController::class, 'user']);
+        Route::get('/dashboard', [AuthController::class, 'dashboard']);
         Route::post('/resend-verification', [AuthController::class, 'resendVerification']);
         Route::put('/profile', [AuthController::class, 'updateProfile']);
         Route::put('/password', [AuthController::class, 'changePassword']);
@@ -42,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/transactions/{reference}', [WalletController::class, 'getTransaction']);
         Route::post('/fund', [WalletController::class, 'initializeFunding']);
         Route::post('/verify', [WalletController::class, 'verifyFunding']);
+        Route::post('/clear-pending', [WalletController::class, 'clearPendingTransactions']);
     });
 
     // Phone number routes
@@ -49,12 +70,51 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/countries', [PhoneController::class, 'getCountries']);
         Route::get('/services', [PhoneController::class, 'getServices']);
         Route::get('/prices', [PhoneController::class, 'getPrices']);
+        Route::get('/operator-prices', [PhoneController::class, 'getOperatorPrices']);
         Route::post('/buy', [PhoneController::class, 'buyNumber']);
         Route::get('/orders', [PhoneController::class, 'getOrders']);
         Route::get('/orders/{orderId}', [PhoneController::class, 'checkOrder']);
         Route::post('/orders/{orderId}/cancel', [PhoneController::class, 'cancelOrder']);
         Route::post('/orders/{orderId}/finish', [PhoneController::class, 'finishOrder']);
         Route::post('/orders/{orderId}/report', [PhoneController::class, 'reportNumber']);
+    });
+
+    // eSIM routes
+    Route::prefix('esim')->group(function () {
+        // Browse packages
+        Route::get('/packages', [ESIMController::class, 'index']);
+        Route::get('/packages/{countryCode}', [ESIMController::class, 'byCountry']);
+        Route::get('/package/{id}', [ESIMController::class, 'showPackage']);
+        Route::get('/popular', [ESIMController::class, 'popular']);
+        Route::get('/countries', [ESIMController::class, 'countries']);
+        Route::get('/regions', [ESIMController::class, 'regions']);
+
+        // Purchase & top-up
+        Route::post('/purchase', [ESIMController::class, 'purchase']);
+        Route::post('/topup/{profileId}', [ESIMController::class, 'topup']);
+
+        // My eSIMs
+        Route::get('/my-profiles', [ESIMController::class, 'myProfiles']);
+        Route::get('/profile/{id}', [ESIMController::class, 'show']);
+        Route::get('/profile/{id}/qrcode', [ESIMController::class, 'qrCode']);
+        Route::post('/profile/{id}/refresh', [ESIMController::class, 'refreshStatus']);
+
+        // Actions
+        Route::post('/cancel/{id}', [ESIMController::class, 'cancel']);
+        Route::post('/update-usage/{id}', [ESIMController::class, 'updateUsage']);
+
+        // Debug/Info
+        Route::get('/balance', [ESIMController::class, 'balance']);
+    });
+
+    // Referral routes
+    Route::prefix('referrals')->group(function () {
+        Route::get('/', [ReferralController::class, 'index']);
+        Route::get('/code', [ReferralController::class, 'getCode']);
+        Route::get('/list', [ReferralController::class, 'getReferrals']);
+        Route::get('/commissions', [ReferralController::class, 'getCommissions']);
+        Route::get('/withdrawals', [ReferralController::class, 'getWithdrawals']);
+        Route::post('/withdraw', [ReferralController::class, 'requestWithdrawal']);
     });
 
     // Admin routes
@@ -91,5 +151,31 @@ Route::middleware('auth:sanctum')->group(function () {
         // Pricing settings
         Route::get('/pricing', [AdminController::class, 'getPricingSettings']);
         Route::put('/pricing', [AdminController::class, 'updatePricingSettings']);
+
+        // eSIM Management
+        Route::prefix('esim')->group(function () {
+            Route::get('/stats', [ESIMAdminController::class, 'stats']);
+            Route::post('/sync-packages', [ESIMAdminController::class, 'syncPackages']);
+            Route::get('/packages', [ESIMAdminController::class, 'packages']);
+            Route::put('/package/{id}', [ESIMAdminController::class, 'updatePackage']);
+            Route::get('/settings', [ESIMAdminController::class, 'getSettings']);
+            Route::put('/settings', [ESIMAdminController::class, 'updateSettings']);
+            Route::get('/orders', [ESIMAdminController::class, 'orders']);
+            Route::get('/test-connection', [ESIMAdminController::class, 'testConnection']);
+            Route::get('/balance', [ESIMAdminController::class, 'balance']);
+            Route::get('/pricing-calculator', [ESIMAdminController::class, 'pricingCalculator']);
+            Route::post('/clear-cache', [ESIMAdminController::class, 'clearCache']);
+        });
+
+        // Referral Management
+        Route::prefix('referrals')->group(function () {
+            Route::get('/dashboard', [ReferralAdminController::class, 'dashboard']);
+            Route::get('/referrals', [ReferralAdminController::class, 'getReferrals']);
+            Route::get('/commissions', [ReferralAdminController::class, 'getCommissions']);
+            Route::get('/withdrawals', [ReferralAdminController::class, 'getWithdrawals']);
+            Route::post('/withdrawals/{id}/approve', [ReferralAdminController::class, 'approveWithdrawal']);
+            Route::post('/withdrawals/{id}/reject', [ReferralAdminController::class, 'rejectWithdrawal']);
+            Route::get('/users/{userId}', [ReferralAdminController::class, 'getUserReferralDetails']);
+        });
     });
 });

@@ -59,6 +59,48 @@ class FiveSimService
     }
 
     /**
+     * Get operator prices for a specific country and product
+     * Returns all available operators with their prices, availability, and success rates
+     */
+    public function getOperatorPrices(string $country, string $product): array
+    {
+        $result = $this->getPrices($country, $product);
+
+        if (!$result['success'] || empty($result['data'])) {
+            return [
+                'success' => false,
+                'message' => 'Unable to fetch operator prices',
+                'data' => [],
+            ];
+        }
+
+        $operators = [];
+        $data = $result['data'];
+
+        // The API returns: { country: { product: { operator: { cost, count, rate } } } }
+        if (isset($data[$country][$product])) {
+            $operatorData = $data[$country][$product];
+
+            foreach ($operatorData as $operatorName => $info) {
+                $operators[] = [
+                    'operator' => $operatorName,
+                    'cost' => $info['cost'] ?? 0,      // Price in RUB
+                    'count' => $info['count'] ?? 0,    // Available numbers
+                    'rate' => $info['rate'] ?? 0,      // Success rate percentage
+                ];
+            }
+
+            // Sort by cost (cheapest first)
+            usort($operators, fn($a, $b) => $a['cost'] <=> $b['cost']);
+        }
+
+        return [
+            'success' => true,
+            'data' => $operators,
+        ];
+    }
+
+    /**
      * Purchase a phone number
      */
     public function buyNumber(
@@ -287,13 +329,13 @@ class FiveSimService
     public static function mapStatus(string $fiveSimStatus): string
     {
         return match ($fiveSimStatus) {
-            'PENDING' => 'pending',
-            'RECEIVED' => 'active',
+            'PENDING' => 'processing',
+            'RECEIVED' => 'processing',
             'CANCELED' => 'cancelled',
             'TIMEOUT' => 'expired',
             'FINISHED' => 'completed',
             'BANNED' => 'refunded',
-            default => 'pending',
+            default => 'processing',
         };
     }
 }

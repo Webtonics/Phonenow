@@ -44,6 +44,13 @@ return [
     'fivesim' => [
         'api_key' => env('FIVESIM_API_KEY'),
         'base_url' => env('FIVESIM_BASE_URL', 'https://5sim.net/v1'),
+        'enabled' => env('FIVESIM_ENABLED', true),
+    ],
+
+    'grizzlysms' => [
+        'api_key' => env('GRIZZLYSMS_API_KEY'),
+        'base_url' => env('GRIZZLYSMS_BASE_URL', 'https://api.grizzlysms.com/stubs/handler_api.php'),
+        'enabled' => env('GRIZZLYSMS_ENABLED', true),
     ],
 
     'peakerr' => [

@@ -107,11 +107,10 @@ class Setting extends Model
     public static function getDefaultPricingSettings(): array
     {
         return [
-            'phone_markup_percentage' => 1000, // 1000% = 10x
-            'phone_exchange_rate' => 20, // 1 RUB = 20 NGN
+            'usd_to_ngn_rate' => 1600, // 1 USD = 1600 NGN (manual exchange rate)
+            'phone_markup_percentage' => 200, // 200% = 2x markup on cost
             'phone_min_price' => 500, // Minimum ₦500 per number
             'phone_platform_fee' => 0, // Additional flat fee
-            'smm_markup_percentage' => 500, // 500% = 5x for SMM
         ];
     }
 
@@ -121,20 +120,21 @@ class Setting extends Model
     public static function initializeDefaults(): void
     {
         $defaults = [
-            // Pricing settings
+            // Exchange Rate (USD to NGN) - MANUAL ONLY
+            [
+                'key' => 'usd_to_ngn_rate',
+                'value' => '1600',
+                'type' => 'float',
+                'group' => 'pricing',
+                'description' => 'USD to NGN exchange rate (e.g., 1600 means 1 USD = ₦1600)',
+            ],
+            // Phone Number Pricing
             [
                 'key' => 'phone_markup_percentage',
-                'value' => '1000',
+                'value' => '200',
                 'type' => 'float',
                 'group' => 'pricing',
-                'description' => 'Markup percentage for phone numbers (1000 = 10x cost)',
-            ],
-            [
-                'key' => 'phone_exchange_rate',
-                'value' => '20',
-                'type' => 'float',
-                'group' => 'pricing',
-                'description' => 'Exchange rate from RUB to NGN',
+                'description' => 'Markup percentage for phone numbers (e.g., 200 = 2x cost)',
             ],
             [
                 'key' => 'phone_min_price',
@@ -150,12 +150,41 @@ class Setting extends Model
                 'group' => 'pricing',
                 'description' => 'Additional flat platform fee per transaction in NGN',
             ],
+            // eSIM Pricing
             [
-                'key' => 'smm_markup_percentage',
-                'value' => '500',
+                'key' => 'esim_profile_markup',
+                'value' => '100',
                 'type' => 'float',
                 'group' => 'pricing',
-                'description' => 'Markup percentage for SMM services (500 = 5x cost)',
+                'description' => 'Markup percentage for eSIM profiles (100 = 2x cost)',
+            ],
+            [
+                'key' => 'esim_data_markup',
+                'value' => '150',
+                'type' => 'float',
+                'group' => 'pricing',
+                'description' => 'Markup percentage for eSIM data bundles (150 = 2.5x cost)',
+            ],
+            [
+                'key' => 'esim_auto_sync',
+                'value' => '1',
+                'type' => 'boolean',
+                'group' => 'esim',
+                'description' => 'Automatically sync eSIM packages from API daily',
+            ],
+            [
+                'key' => 'esim_low_data_threshold',
+                'value' => '20',
+                'type' => 'integer',
+                'group' => 'esim',
+                'description' => 'Send low data warning when usage exceeds this percentage',
+            ],
+            [
+                'key' => 'esim_expiry_warning_days',
+                'value' => '3',
+                'type' => 'integer',
+                'group' => 'esim',
+                'description' => 'Send expiry warning this many days before eSIM expires',
             ],
             // General settings
             [
@@ -194,5 +223,45 @@ class Setting extends Model
                 $setting
             );
         }
+    }
+
+    /**
+     * Get eSIM profile markup percentage
+     */
+    public static function getEsimProfileMarkup(): float
+    {
+        return (float) self::getValue('esim_profile_markup', 100);
+    }
+
+    /**
+     * Get eSIM data bundle markup percentage
+     */
+    public static function getEsimDataMarkup(): float
+    {
+        return (float) self::getValue('esim_data_markup', 150);
+    }
+
+    /**
+     * Get eSIM low data threshold
+     */
+    public static function getEsimLowDataThreshold(): int
+    {
+        return (int) self::getValue('esim_low_data_threshold', 20);
+    }
+
+    /**
+     * Get eSIM expiry warning days
+     */
+    public static function getEsimExpiryWarningDays(): int
+    {
+        return (int) self::getValue('esim_expiry_warning_days', 3);
+    }
+
+    /**
+     * Check if eSIM auto-sync is enabled
+     */
+    public static function isEsimAutoSyncEnabled(): bool
+    {
+        return (bool) self::getValue('esim_auto_sync', true);
     }
 }

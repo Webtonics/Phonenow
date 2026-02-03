@@ -7,7 +7,8 @@ use App\Models\Order;
 use App\Models\Setting;
 use App\Models\Transaction;
 use App\Services\ExchangeRateService;
-use App\Services\FiveSimService;
+use App\Services\SmsProviderManager;
+use App\Services\ReferralService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -17,35 +18,68 @@ use Illuminate\Support\Facades\Log;
 class PhoneController extends Controller
 {
     public function __construct(
-        protected FiveSimService $fiveSimService,
+        protected SmsProviderManager $providerManager,
         protected ExchangeRateService $exchangeRateService
     ) {}
 
     /**
-     * Test 5SIM API connection and get profile
+     * Get available SMS providers
      */
-    public function test5SIM(): JsonResponse
+    public function getProviders(): JsonResponse
     {
         try {
-            // Get profile/balance
-            $profile = $this->fiveSimService->getProfile();
+            $providers = $this->providerManager->getProvidersInfo();
 
-            // Get Nigeria products
-            $products = $this->fiveSimService->getProducts('nigeria', 'any');
+            return response()->json([
+                'success' => true,
+                'data' => $providers,
+                'default' => $this->providerManager->getDefaultName(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get providers', ['error' => $e->getMessage()]);
 
-            // Get WhatsApp specifically
-            $whatsapp = null;
-            if ($products['success'] && isset($products['data']['whatsapp'])) {
-                $whatsapp = $products['data']['whatsapp'];
-            }
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load providers',
+            ], 500);
+        }
+    }
+
+    /**
+     * Test provider API connection
+     */
+    public function testProvider(Request $request): JsonResponse
+    {
+        $providerId = $request->query('provider');
+        $clearCache = $request->query('clear_cache', false);
+
+        // Clear cache if requested
+        if ($clearCache) {
+            $this->providerManager->clearAllCache();
+            Cache::forget('sms_countries_all');
+            Cache::forget('sms_countries_5sim');
+            Cache::forget('sms_countries_grizzlysms');
+        }
+
+        try {
+            $provider = $providerId
+                ? $this->providerManager->provider($providerId)
+                : $this->providerManager->getDefault();
+
+            $balance = $provider->getBalance();
+            $countries = $provider->getCountries()->take(5);
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'profile' => $profile,
-                    'total_products' => $products['success'] ? count($products['data']) : 0,
-                    'whatsapp' => $whatsapp,
-                    'all_products' => $products['success'] ? $products['data'] : [],
+                    'provider' => $provider->getDisplayName(),
+                    'enabled' => $provider->isEnabled(),
+                    'balance' => $balance->success ? [
+                        'amount' => $balance->balance,
+                        'currency' => $balance->currency,
+                    ] : null,
+                    'sample_countries' => $countries->map(fn($c) => $c->toArray())->values(),
+                    'cache_cleared' => (bool) $clearCache,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -58,27 +92,66 @@ class PhoneController extends Controller
     }
 
     /**
-     * Get available countries
+     * Clear SMS-related cache
      */
-    public function getCountries(): JsonResponse
+    public function clearCache(): JsonResponse
     {
         try {
-            // Try to get from cache first
-            $countries = Cache::get('5sim_countries');
+            $this->providerManager->clearAllCache();
+            Cache::forget('sms_countries_all');
+            Cache::forget('sms_countries_5sim');
+            Cache::forget('sms_countries_grizzlysms');
 
-            if (!$countries) {
-                // Fetch from API
-                $result = $this->fiveSimService->getCountries();
+            return response()->json([
+                'success' => true,
+                'message' => 'SMS cache cleared successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to clear cache',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 
-                if ($result['success'] && !empty($result['data'])) {
-                    $countries = $result['data'];
-                    // Cache successful result for 1 hour
-                    Cache::put('5sim_countries', $countries, 3600);
+    /**
+     * Get available countries
+     * IMPORTANT: Does NOT cache empty results
+     */
+    public function getCountries(Request $request): JsonResponse
+    {
+        $providerId = $request->query('provider');
+        $cacheKey = 'sms_countries_' . ($providerId ?? 'all');
+
+        try {
+            // Check cache first
+            $countries = Cache::get($cacheKey);
+
+            if (empty($countries)) {
+                // Fetch from provider
+                if ($providerId) {
+                    $provider = $this->providerManager->provider($providerId);
+                    $countriesCollection = $provider->getCountries();
                 } else {
-                    // Use fallback list of common countries
-                    Log::warning('5SIM countries API failed, using fallback list');
-                    $countries = $this->getFallbackCountries();
+                    $countriesCollection = $this->providerManager->getAggregatedCountries();
                 }
+
+                // Convert to array format for frontend
+                $countries = $countriesCollection
+                    ->mapWithKeys(fn($c) => [$c->code => $c->toArray()])
+                    ->toArray();
+
+                // Only cache non-empty results
+                if (!empty($countries)) {
+                    Cache::put($cacheKey, $countries, config('sms.cache.countries', 3600));
+                }
+            }
+
+            // Use fallback if still empty
+            if (empty($countries)) {
+                Log::warning('No countries returned, using fallback list');
+                $countries = $this->getFallbackCountries();
             }
 
             return response()->json([
@@ -88,7 +161,6 @@ class PhoneController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to get countries', ['error' => $e->getMessage()]);
 
-            // Return fallback countries instead of error
             return response()->json([
                 'success' => true,
                 'data' => $this->getFallbackCountries(),
@@ -99,66 +171,74 @@ class PhoneController extends Controller
 
     /**
      * Get available services/products for a country
+     * IMPORTANT: Does NOT cache empty results
      */
     public function getServices(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'country' => ['required', 'string'],
             'operator' => ['sometimes', 'string'],
+            'provider' => ['sometimes', 'string'],
         ]);
 
         $country = $validated['country'];
         $operator = $validated['operator'] ?? 'any';
+        $providerId = $validated['provider'] ?? null;
 
-        $cacheKey = "5sim_products_{$country}_{$operator}";
+        $cacheKey = "sms_products_{$country}_{$operator}_" . ($providerId ?? 'all');
 
         try {
-            // Try to get from cache first
-            $cachedProducts = Cache::get($cacheKey);
+            // Check cache first
+            $rawProducts = Cache::get($cacheKey);
 
-            if ($cachedProducts) {
+            if (empty($rawProducts)) {
+                // Fetch from provider
+                if ($providerId) {
+                    $provider = $this->providerManager->provider($providerId);
+                    $rawProducts = $provider->getProducts($country, $operator)
+                        ->map(fn($p) => array_merge($p->toArray(), ['provider' => $provider->getIdentifier()]))
+                        ->toArray();
+                } else {
+                    $rawProducts = $this->providerManager->getEnabledProviders()
+                        ->flatMap(fn($provider) => $provider->getProducts($country, $operator)
+                            ->map(fn($p) => array_merge($p->toArray(), ['provider' => $provider->getIdentifier()])))
+                        ->unique('code')
+                        ->values()
+                        ->toArray();
+                }
+
+                // Only cache non-empty results
+                if (!empty($rawProducts)) {
+                    Cache::put($cacheKey, $rawProducts, config('sms.cache.products', 1800));
+                }
+            }
+
+            if (empty($rawProducts)) {
+                // Return fallback services when no products available
+                $fallbackServices = $this->getFallbackServices($country);
                 return response()->json([
                     'success' => true,
-                    'data' => $cachedProducts,
+                    'data' => $fallbackServices,
+                    'warning' => 'Showing popular services. Live availability may vary.',
                 ]);
             }
 
-            // Fetch from API
-            $result = $this->fiveSimService->getProducts($country, $operator);
+            // Format products with pricing (calculated fresh each time)
+            $formattedProducts = collect($rawProducts)->map(function ($product) {
+                $basePrice = $product['base_price'] ?? 0;
+                $baseCurrency = $product['base_currency'] ?? 'RUB';
 
-            if (!$result['success'] || empty($result['data'])) {
-                Log::warning('5SIM products API failed', ['country' => $country]);
-
-                return response()->json([
-                    'success' => true,
-                    'data' => [],
-                    'warning' => 'Unable to fetch services. Please check your internet connection.',
-                ]);
-            }
-
-            $products = $result['data'];
-
-            // Format products with pricing
-            $formattedProducts = [];
-            foreach ($products as $productName => $productData) {
-                $quantity = $productData['Qty'] ?? 0;
-                $basePrice = $productData['Price'] ?? 0;
-
-                $formattedProducts[] = [
-                    'name' => $productName,
-                    'display_name' => ucfirst(str_replace('_', ' ', $productName)),
-                    'quantity' => $quantity,
+                return [
+                    'name' => $product['code'],
+                    'display_name' => $product['display_name'],
+                    'quantity' => $product['quantity'],
                     'base_price' => $basePrice,
-                    'price' => $this->calculateMarkupPrice($basePrice),
-                    'category' => 'social',
+                    'base_currency' => $baseCurrency,
+                    'price' => $this->calculateMarkupPrice($basePrice, $baseCurrency),
+                    'category' => $product['category'] ?? 'other',
+                    'provider' => $product['provider'] ?? null,
                 ];
-            }
-
-            // Sort by quantity (availability)
-            usort($formattedProducts, fn($a, $b) => $b['quantity'] <=> $a['quantity']);
-
-            // Cache successful result for 30 minutes
-            Cache::put($cacheKey, $formattedProducts, 1800);
+            })->sortByDesc('quantity')->values();
 
             return response()->json([
                 'success' => true,
@@ -170,10 +250,13 @@ class PhoneController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
+            // Return fallback services when API fails
+            $fallbackServices = $this->getFallbackServices($country);
+
             return response()->json([
                 'success' => true,
-                'data' => [],
-                'warning' => 'Unable to fetch services. Please check your internet connection.',
+                'data' => $fallbackServices,
+                'warning' => 'Using cached services. Live data temporarily unavailable.',
             ]);
         }
     }
@@ -186,17 +269,27 @@ class PhoneController extends Controller
         $validated = $request->validate([
             'country' => ['required', 'string'],
             'product' => ['sometimes', 'string'],
+            'provider' => ['sometimes', 'string'],
         ]);
 
         $country = $validated['country'];
-        $product = $validated['product'] ?? '';
+        $product = $validated['product'] ?? null;
+        $providerId = $validated['provider'] ?? null;
 
-        $cacheKey = "5sim_prices_{$country}" . ($product ? "_{$product}" : '');
+        $cacheKey = "sms_prices_{$country}" . ($product ? "_{$product}" : '') . '_' . ($providerId ?? 'all');
 
         try {
-            $prices = Cache::remember($cacheKey, 1800, function () use ($country, $product) {
-                $result = $this->fiveSimService->getPrices($country, $product);
-                return $result['success'] ? $result['data'] : [];
+            $prices = Cache::remember($cacheKey, config('sms.cache.prices', 300), function () use ($country, $product, $providerId) {
+                if ($providerId) {
+                    $provider = $this->providerManager->provider($providerId);
+                    return $provider->getPrices($country, $product)
+                        ->map(fn($p) => $p->toArray())
+                        ->toArray();
+                }
+
+                return $this->providerManager->getAggregatedPrices($country, $product ?? '')
+                    ->map(fn($p) => $p->toArray())
+                    ->toArray();
             });
 
             return response()->json([
@@ -213,7 +306,97 @@ class PhoneController extends Controller
     }
 
     /**
-     * Purchase a phone number - SIMPLIFIED
+     * Get operator prices for a specific service
+     * IMPORTANT: Does NOT cache empty results
+     */
+    public function getOperatorPrices(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'country' => ['required', 'string'],
+            'product' => ['required', 'string'],
+            'provider' => ['sometimes', 'string'],
+        ]);
+
+        $country = $validated['country'];
+        $product = $validated['product'];
+        $providerId = $validated['provider'] ?? null;
+
+        $cacheKey = "sms_operator_prices_{$country}_{$product}_" . ($providerId ?? 'all');
+
+        try {
+            // Check cache first
+            $rawOperators = Cache::get($cacheKey);
+
+            if (empty($rawOperators)) {
+                // Fetch from provider
+                if ($providerId) {
+                    $provider = $this->providerManager->provider($providerId);
+                    $rawOperators = $provider->getOperatorPrices($country, $product)
+                        ->map(fn($p) => $p->toArray())
+                        ->toArray();
+                } else {
+                    $rawOperators = $this->providerManager->getAggregatedPrices($country, $product)
+                        ->map(fn($p) => $p->toArray())
+                        ->toArray();
+                }
+
+                // Only cache non-empty results
+                if (!empty($rawOperators)) {
+                    Cache::put($cacheKey, $rawOperators, config('sms.cache.prices', 300));
+                }
+            }
+
+            // If still empty, return fallback
+            if (empty($rawOperators)) {
+                $fallbackPrices = $this->getFallbackOperatorPrices($product);
+                return response()->json([
+                    'success' => true,
+                    'data' => $fallbackPrices,
+                    'warning' => 'Showing estimated prices. Actual availability may vary.',
+                ]);
+            }
+
+            // Calculate prices fresh each time
+            $operators = collect($rawOperators)->map(function ($op) {
+                $baseCost = $op['cost'] ?? 0;
+                $baseCurrency = $op['currency'] ?? 'RUB';
+                $priceNgn = $this->calculateMarkupPrice($baseCost, $baseCurrency);
+
+                return [
+                    'id' => $op['operator'],
+                    'operator' => $op['operator'],
+                    'price' => $priceNgn,
+                    'base_price' => $baseCost,
+                    'currency' => $baseCurrency,
+                    'available' => $op['available'] ?? 0,
+                    'success_rate' => isset($op['success_rate']) ? round($op['success_rate'], 1) : null,
+                    'provider' => $op['provider'] ?? null,
+                ];
+            })->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $operators,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get operator prices', [
+                'country' => $country,
+                'product' => $product,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Return fallback pricing when API fails
+            $fallbackPrices = $this->getFallbackOperatorPrices($product);
+            return response()->json([
+                'success' => true,
+                'data' => $fallbackPrices,
+                'warning' => 'Showing estimated prices. Actual availability may vary.',
+            ]);
+        }
+    }
+
+    /**
+     * Purchase a phone number
      */
     public function buyNumber(Request $request): JsonResponse
     {
@@ -223,54 +406,71 @@ class PhoneController extends Controller
             'country' => ['required', 'string'],
             'operator' => ['required', 'string'],
             'product' => ['required', 'string'],
+            'provider' => ['sometimes', 'string'],
         ]);
 
-        Log::info('Phone number purchase started', [
-            'user_id' => $user->id,
-            'country' => $validated['country'],
-            'operator' => $validated['operator'],
-            'product' => $validated['product'],
-            'user_balance' => $user->balance,
-        ]);
+        // Parse operator name - it may include provider suffix (e.g., "any_grizzlysms", "virtual40_5sim")
+        $operatorInput = $validated['operator'];
+        $realOperator = $operatorInput;
+        $providerId = $validated['provider'] ?? null;
+
+        // Check if operator contains provider suffix and extract it
+        foreach (['_5sim', '_grizzlysms'] as $suffix) {
+            if (str_ends_with($operatorInput, $suffix)) {
+                $realOperator = substr($operatorInput, 0, -strlen($suffix));
+                // Use provider from operator name if not explicitly provided
+                if (!$providerId) {
+                    $providerId = str_replace('_', '', $suffix); // '5sim' or 'grizzlysms'
+                }
+                break;
+            }
+        }
 
         try {
-            // Get products to find the base price
-            $productsResult = $this->fiveSimService->getProducts($validated['country'], $validated['operator']);
+            if ($providerId) {
+                $provider = $this->providerManager->provider($providerId);
+            } else {
+                $strategy = config('sms.selection_strategy', 'cheapest');
+                $provider = $this->providerManager->selectBestProvider(
+                    $validated['country'],
+                    $validated['product'],
+                    $strategy
+                );
+            }
 
-            Log::info('Products fetched', [
-                'success' => $productsResult['success'],
-                'has_product' => isset($productsResult['data'][$validated['product']]),
+            if (!$provider) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No providers available for this service.',
+                ], 400);
+            }
+
+            Log::info('Phone number purchase started', [
+                'user_id' => $user->id,
+                'provider' => $provider->getIdentifier(),
+                'country' => $validated['country'],
+                'operator_input' => $operatorInput,
+                'operator_parsed' => $realOperator,
+                'product' => $validated['product'],
+                'user_balance' => $user->balance,
             ]);
 
-            if (!$productsResult['success']) {
+            // Get operator prices from selected provider
+            $prices = $provider->getOperatorPrices($validated['country'], $validated['product']);
+            $operatorPrice = $prices->firstWhere('operator', $realOperator) ?? $prices->first();
+
+            if (!$operatorPrice || $operatorPrice->available <= 0) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unable to get service information. Please try again.',
+                    'message' => 'No phone numbers available for this service.',
                 ], 400);
             }
 
-            $productData = $productsResult['data'][$validated['product']] ?? null;
-
-            if (!$productData) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Service not available.',
-                ], 400);
-            }
-
-            // Check if service is available
-            if (($productData['Qty'] ?? 0) <= 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No phone numbers available for this service right now.',
-                ], 400);
-            }
-
-            $basePrice = $productData['Price'] ?? 0;
-            $price = $this->calculateMarkupPrice($basePrice);
+            $price = $this->calculateMarkupPrice($operatorPrice->cost, $operatorPrice->currency);
 
             Log::info('Price calculated', [
-                'base_price_usd' => $basePrice,
+                'base_price' => $operatorPrice->cost,
+                'currency' => $operatorPrice->currency,
                 'final_price_ngn' => $price,
                 'user_balance' => $user->balance,
             ]);
@@ -290,79 +490,51 @@ class PhoneController extends Controller
             DB::beginTransaction();
 
             try {
-                // Capture balance before deduction
                 $balanceBefore = $user->balance;
 
-                Log::info('Starting balance deduction', [
-                    'balance_before' => $balanceBefore,
-                    'amount_to_deduct' => $price,
-                ]);
-
-                // Deduct balance
                 if (!$user->deductBalance($price)) {
                     throw new \Exception('Failed to deduct balance');
                 }
 
-                // Refresh user to get updated balance
                 $user->refresh();
                 $balanceAfter = $user->balance;
 
-                Log::info('Balance deducted successfully', [
-                    'balance_before' => $balanceBefore,
-                    'balance_after' => $balanceAfter,
-                ]);
-
-                // Create transaction (debit for purchases)
+                // Create transaction
                 $transaction = Transaction::create([
                     'user_id' => $user->id,
                     'type' => 'debit',
                     'amount' => $price,
                     'status' => 'pending',
                     'reference' => Transaction::generateReference(),
-                    'description' => "Phone number purchase: {$validated['product']}",
-                    'payment_method' => 'refund', // Using refund as placeholder for wallet purchases
+                    'description' => "Phone number purchase: {$validated['product']} via {$provider->getDisplayName()}",
+                    'payment_method' => 'wallet',
                     'balance_before' => $balanceBefore,
                     'balance_after' => $balanceAfter,
                 ]);
 
-                Log::info('Transaction created', [
-                    'transaction_id' => $transaction->id,
-                    'reference' => $transaction->reference,
-                ]);
-
-                // Purchase from 5SIM
-                Log::info('Calling 5SIM API to purchase number');
-
-                $result = $this->fiveSimService->buyNumber(
+                // Purchase from provider (use parsed operator name)
+                $result = $provider->buyNumber(
                     $validated['country'],
-                    $validated['operator'],
+                    $realOperator,
                     $validated['product'],
                     $user->id
                 );
 
-                Log::info('5SIM API response', [
-                    'success' => $result['success'],
-                    'data' => $result['data'] ?? null,
-                    'message' => $result['message'] ?? null,
-                ]);
-
-                if (!$result['success']) {
+                if (!$result->success) {
                     // Refund the user
                     $user->addBalance($price);
                     $transaction->update([
                         'status' => 'failed',
-                        'metadata' => ['error' => $result['message'] ?? 'Purchase failed'],
+                        'metadata' => ['error' => $result->errorMessage],
                     ]);
 
                     DB::commit();
 
                     return response()->json([
                         'success' => false,
-                        'message' => $result['message'] ?? 'Failed to purchase number. Your balance has been refunded.',
+                        'message' => $result->errorMessage ?? 'Failed to purchase number. Your balance has been refunded.',
                     ], 400);
                 }
-
-                $orderData = $result['data'];
 
                 // Create order
                 $order = Order::create([
@@ -370,26 +542,46 @@ class PhoneController extends Controller
                     'service_id' => null,
                     'order_number' => Order::generateOrderNumber($user->id),
                     'type' => 'phone_number',
-                    'status' => 'processing',
+                    'status' => $provider->mapStatus($result->status ?? 'PENDING'),
                     'amount_paid' => $price,
-                    'provider' => '5sim',
-                    'provider_order_id' => (string) $orderData['order_id'],
-                    'phone_number' => $orderData['phone'],
-                    'expires_at' => isset($orderData['expires']) ? \Carbon\Carbon::parse($orderData['expires']) : now()->addMinutes(20),
+                    'provider' => $provider->getIdentifier(),
+                    'provider_order_id' => $result->providerOrderId,
+                    'phone_number' => $result->phone,
+                    'product_name' => $validated['product'],
+                    'country_code' => $validated['country'],
+                    'operator' => $result->operator ?? $validated['operator'],
+                    'expires_at' => $result->expiresAt ?? now()->addMinutes(config('sms.order_expiration_minutes', 20)),
+                    'provider_metadata' => [
+                        'provider_price' => $operatorPrice->cost,
+                        'provider_currency' => $operatorPrice->currency,
+                    ],
                 ]);
 
                 Log::info('Order created successfully', [
                     'order_id' => $order->id,
                     'order_number' => $order->order_number,
                     'phone_number' => $order->phone_number,
+                    'provider' => $provider->getIdentifier(),
                 ]);
 
-                // Update transaction status to completed
-                $transaction->update([
-                    'status' => 'completed',
-                ]);
+                $transaction->update(['status' => 'completed']);
 
-                Log::info('Transaction marked as completed', ['transaction_id' => $transaction->id]);
+                // Process referral commission
+                try {
+                    $referralService = new ReferralService();
+                    $commissionAmount = $referralService->processCommission($transaction, $user->id);
+                    if ($commissionAmount) {
+                        Log::info('Referral commission processed', [
+                            'user_id' => $user->id,
+                            'commission_amount' => $commissionAmount,
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Referral commission processing failed', [
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
 
                 DB::commit();
 
@@ -399,51 +591,31 @@ class PhoneController extends Controller
                     'data' => [
                         'order_id' => $order->id,
                         'order_number' => $order->order_number,
-                        'phone' => $orderData['phone'],
-                        'product' => $orderData['product'],
-                        'operator' => $orderData['operator'],
-                        'country' => $orderData['country'],
+                        'phone' => $result->phone,
+                        'product' => $validated['product'],
+                        'operator' => $order->operator,
+                        'country' => $validated['country'],
+                        'provider' => $provider->getDisplayName(),
                         'status' => $order->status,
                         'price' => $price,
-                        'expires' => $orderData['expires'],
+                        'expires_at' => $order->expires_at?->toISOString(),
                         'balance' => (float) $user->fresh()->balance,
                     ],
                 ]);
             } catch (\Exception $e) {
                 DB::rollBack();
-
-                Log::error('Phone number purchase failed - Inner exception', [
-                    'user_id' => $user->id,
-                    'error' => $e->getMessage(),
-                    'error_code' => $e->getCode(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'An error occurred during purchase. Please try again.',
-                    'debug' => config('app.debug') ? [
-                        'error' => $e->getMessage(),
-                        'file' => $e->getFile(),
-                        'line' => $e->getLine(),
-                    ] : null,
-                ], 500);
+                throw $e;
             }
         } catch (\Exception $e) {
-            Log::error('Phone number purchase validation failed - Outer exception', [
+            Log::error('Phone number purchase failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
-                'error_code' => $e->getCode(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred. Please try again.',
+                'message' => 'An error occurred during purchase. Please try again.',
                 'debug' => config('app.debug') ? [
                     'error' => $e->getMessage(),
                     'file' => $e->getFile(),
@@ -462,7 +634,7 @@ class PhoneController extends Controller
 
         $order = Order::where('id', $orderId)
             ->where('user_id', $user->id)
-            ->where('type', 'phone')
+            ->where('type', 'phone_number')
             ->first();
 
         if (!$order) {
@@ -472,59 +644,48 @@ class PhoneController extends Controller
             ], 404);
         }
 
-        // If order is already completed/cancelled/refunded, return cached data
+        // If order is already in final state, return cached data
         if (in_array($order->status, ['completed', 'cancelled', 'refunded', 'expired'])) {
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'order_id' => $order->id,
-                    'order_number' => $order->order_number,
-                    'phone' => $order->metadata['phone'] ?? null,
-                    'product' => $order->metadata['product'] ?? null,
-                    'status' => $order->status,
-                    'sms' => $order->metadata['sms'] ?? [],
-                    'expires' => $order->metadata['expires'] ?? null,
-                ],
-            ]);
+            return $this->formatOrderResponse($order);
         }
 
-        // Check with 5SIM
-        $result = $this->fiveSimService->checkOrder($order->external_order_id, $user->id);
+        try {
+            // Get the correct provider for this order
+            $provider = $this->providerManager->getProviderForOrder($order);
 
-        if (!$result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => $result['message'] ?? 'Failed to check order status.',
-            ], 400);
-        }
+            $result = $provider->checkOrder($order->provider_order_id, $user->id);
 
-        $orderData = $result['data'];
-        $newStatus = FiveSimService::mapStatus($orderData['status']);
+            if (!$result->success) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result->errorMessage ?? 'Failed to check order status.',
+                ], 400);
+            }
 
-        // Update order if status changed
-        if ($order->status !== $newStatus || !empty($orderData['sms'])) {
-            $order->update([
-                'status' => $newStatus,
-                'metadata' => array_merge($order->metadata ?? [], [
-                    'sms' => $orderData['sms'],
-                    'last_checked' => now()->toISOString(),
-                ]),
-            ]);
-        }
+            // Update order if status changed or SMS received
+            if ($order->status !== $result->mappedStatus || ($result->hasReceivedSms() && !$order->sms_code)) {
+                $updateData = ['status' => $result->mappedStatus];
 
-        return response()->json([
-            'success' => true,
-            'data' => [
+                if ($result->hasReceivedSms() && !empty($result->sms)) {
+                    $latestSms = end($result->sms);
+                    $updateData['sms_code'] = $latestSms->code;
+                    $updateData['sms_text'] = $latestSms->text;
+                }
+
+                $order->update($updateData);
+                $order->refresh();
+            }
+
+            return $this->formatOrderResponse($order);
+        } catch (\Exception $e) {
+            Log::error('Failed to check order', [
                 'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'phone' => $orderData['phone'],
-                'product' => $orderData['product'],
-                'operator' => $orderData['operator'],
-                'status' => $newStatus,
-                'sms' => $orderData['sms'],
-                'expires' => $orderData['expires'],
-            ],
-        ]);
+                'error' => $e->getMessage(),
+            ]);
+
+            // Return cached data on error
+            return $this->formatOrderResponse($order);
+        }
     }
 
     /**
@@ -536,7 +697,7 @@ class PhoneController extends Controller
 
         $order = Order::where('id', $orderId)
             ->where('user_id', $user->id)
-            ->where('type', 'phone')
+            ->where('type', 'phone_number')
             ->first();
 
         if (!$order) {
@@ -546,67 +707,62 @@ class PhoneController extends Controller
             ], 404);
         }
 
-        if (!in_array($order->status, ['pending', 'active'])) {
+        if (!$order->canBeCancelled()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Order cannot be cancelled.',
             ], 400);
         }
 
-        // Cancel with 5SIM
-        $result = $this->fiveSimService->cancelOrder($order->external_order_id, $user->id);
-
-        if (!$result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => $result['message'] ?? 'Failed to cancel order.',
-            ], 400);
-        }
-
-        DB::beginTransaction();
-
         try {
-            // Update order status
-            $order->update([
-                'status' => 'cancelled',
-                'metadata' => array_merge($order->metadata ?? [], [
-                    'cancelled_at' => now()->toISOString(),
-                ]),
-            ]);
+            $provider = $this->providerManager->getProviderForOrder($order);
 
-            // Refund user (5SIM refunds automatically on cancel)
-            $user->addBalance($order->price);
+            if (!$provider->cancelOrder($order->provider_order_id, $user->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to cancel order with provider.',
+                ], 400);
+            }
 
-            // Create refund transaction
-            Transaction::create([
-                'user_id' => $user->id,
-                'type' => 'refund',
-                'amount' => $order->price,
-                'currency' => 'NGN',
-                'status' => 'completed',
-                'reference' => Transaction::generateReference(),
-                'description' => "Refund for cancelled order: {$order->order_number}",
-                'payment_method' => 'wallet',
-                'metadata' => [
-                    'order_id' => $order->id,
-                    'order_number' => $order->order_number,
-                ],
-            ]);
+            DB::beginTransaction();
 
-            DB::commit();
+            try {
+                $order->update(['status' => 'cancelled']);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Order cancelled and refunded successfully.',
-                'data' => [
-                    'order_id' => $order->id,
-                    'refunded_amount' => (float) $order->price,
-                    'balance' => (float) $user->fresh()->balance,
-                ],
-            ]);
+                // Refund user
+                $balanceBefore = $user->balance;
+                $user->addBalance($order->amount_paid);
+                $user->refresh();
+                $balanceAfter = $user->balance;
+
+                Transaction::create([
+                    'user_id' => $user->id,
+                    'type' => 'credit',
+                    'amount' => $order->amount_paid,
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+                    'status' => 'completed',
+                    'reference' => Transaction::generateReference(),
+                    'description' => "Refund for cancelled order: {$order->order_number}",
+                    'payment_method' => 'refund',
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Order cancelled and refunded successfully.',
+                    'data' => [
+                        'order_id' => $order->id,
+                        'refunded_amount' => (float) $order->amount_paid,
+                        'balance' => (float) $user->fresh()->balance,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
         } catch (\Exception $e) {
-            DB::rollBack();
-
             Log::error('Order cancellation failed', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
@@ -628,7 +784,7 @@ class PhoneController extends Controller
 
         $order = Order::where('id', $orderId)
             ->where('user_id', $user->id)
-            ->where('type', 'phone')
+            ->where('type', 'phone_number')
             ->first();
 
         if (!$order) {
@@ -638,38 +794,47 @@ class PhoneController extends Controller
             ], 404);
         }
 
-        if ($order->status !== 'active') {
+        if ($order->status !== 'processing') {
             return response()->json([
                 'success' => false,
                 'message' => 'Order cannot be finished. SMS must be received first.',
             ], 400);
         }
 
-        // Finish with 5SIM
-        $result = $this->fiveSimService->finishOrder($order->external_order_id, $user->id);
+        try {
+            $provider = $this->providerManager->getProviderForOrder($order);
 
-        if (!$result['success']) {
+            if (!$provider->finishOrder($order->provider_order_id, $user->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to finish order with provider.',
+                ], 400);
+            }
+
+            $order->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order completed successfully.',
+                'data' => [
+                    'order_id' => $order->id,
+                    'status' => 'completed',
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Order finish failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => $result['message'] ?? 'Failed to finish order.',
-            ], 400);
+                'message' => 'An error occurred while finishing the order.',
+            ], 500);
         }
-
-        $order->update([
-            'status' => 'completed',
-            'metadata' => array_merge($order->metadata ?? [], [
-                'completed_at' => now()->toISOString(),
-            ]),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Order completed successfully.',
-            'data' => [
-                'order_id' => $order->id,
-                'status' => 'completed',
-            ],
-        ]);
     }
 
     /**
@@ -681,7 +846,7 @@ class PhoneController extends Controller
 
         $order = Order::where('id', $orderId)
             ->where('user_id', $user->id)
-            ->where('type', 'phone')
+            ->where('type', 'phone_number')
             ->first();
 
         if (!$order) {
@@ -691,68 +856,65 @@ class PhoneController extends Controller
             ], 404);
         }
 
-        if (!in_array($order->status, ['pending', 'active'])) {
+        if (!in_array($order->status, ['pending', 'processing'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Order cannot be reported.',
             ], 400);
         }
 
-        // Ban with 5SIM
-        $result = $this->fiveSimService->banOrder($order->external_order_id, $user->id);
-
-        if (!$result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => $result['message'] ?? 'Failed to report number.',
-            ], 400);
-        }
-
-        DB::beginTransaction();
-
         try {
-            // Update order status
-            $order->update([
-                'status' => 'refunded',
-                'metadata' => array_merge($order->metadata ?? [], [
-                    'reported_at' => now()->toISOString(),
-                    'report_reason' => $request->input('reason', 'Bad number'),
-                ]),
-            ]);
+            $provider = $this->providerManager->getProviderForOrder($order);
 
-            // Refund user
-            $user->addBalance($order->price);
+            if (!$provider->banOrder($order->provider_order_id, $user->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to report number.',
+                ], 400);
+            }
 
-            // Create refund transaction
-            Transaction::create([
-                'user_id' => $user->id,
-                'type' => 'refund',
-                'amount' => $order->price,
-                'currency' => 'NGN',
-                'status' => 'completed',
-                'reference' => Transaction::generateReference(),
-                'description' => "Refund for reported number: {$order->order_number}",
-                'payment_method' => 'wallet',
-                'metadata' => [
-                    'order_id' => $order->id,
-                    'order_number' => $order->order_number,
-                ],
-            ]);
+            DB::beginTransaction();
 
-            DB::commit();
+            try {
+                $order->update([
+                    'status' => 'refunded',
+                    'failure_reason' => $request->input('reason', 'Bad number'),
+                ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Number reported and refunded successfully.',
-                'data' => [
-                    'order_id' => $order->id,
-                    'refunded_amount' => (float) $order->price,
-                    'balance' => (float) $user->fresh()->balance,
-                ],
-            ]);
+                // Refund user
+                $balanceBefore = $user->balance;
+                $user->addBalance($order->amount_paid);
+                $user->refresh();
+                $balanceAfter = $user->balance;
+
+                Transaction::create([
+                    'user_id' => $user->id,
+                    'type' => 'credit',
+                    'amount' => $order->amount_paid,
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+                    'status' => 'completed',
+                    'reference' => Transaction::generateReference(),
+                    'description' => "Refund for reported number: {$order->order_number}",
+                    'payment_method' => 'refund',
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Number reported and refunded successfully.',
+                    'data' => [
+                        'order_id' => $order->id,
+                        'refunded_amount' => (float) $order->amount_paid,
+                        'balance' => (float) $user->fresh()->balance,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
         } catch (\Exception $e) {
-            DB::rollBack();
-
             Log::error('Number report failed', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
@@ -773,15 +935,20 @@ class PhoneController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'status' => ['sometimes', 'in:pending,active,completed,cancelled,expired,refunded'],
+            'status' => ['sometimes', 'in:pending,processing,completed,cancelled,expired,refunded,failed'],
+            'provider' => ['sometimes', 'string'],
             'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
         ]);
 
         $query = Order::where('user_id', $user->id)
-            ->where('type', 'phone');
+            ->where('type', 'phone_number');
 
         if (isset($validated['status'])) {
             $query->where('status', $validated['status']);
+        }
+
+        if (isset($validated['provider'])) {
+            $query->where('provider', $validated['provider']);
         }
 
         $orders = $query->orderBy('created_at', 'desc')
@@ -792,15 +959,16 @@ class PhoneController extends Controller
             'data' => collect($orders->items())->map(fn($order) => [
                 'id' => $order->id,
                 'order_number' => $order->order_number,
-                'phone' => $order->metadata['phone'] ?? null,
-                'product' => $order->metadata['product'] ?? null,
-                'operator' => $order->metadata['operator'] ?? null,
-                'country' => $order->metadata['country'] ?? null,
+                'phone' => $order->phone_number,
+                'product' => $order->product_name,
+                'operator' => $order->operator ?? $order->provider,
+                'country' => $order->country_code,
+                'provider' => $order->provider,
                 'status' => $order->status,
-                'price' => (float) $order->price,
-                'sms' => $order->metadata['sms'] ?? [],
-                'expires' => $order->metadata['expires'] ?? null,
-                'created_at' => $order->created_at,
+                'price' => (float) $order->amount_paid,
+                'sms' => $order->sms_code ? [['code' => $order->sms_code, 'text' => $order->sms_text ?? '']] : [],
+                'expires_at' => $order->expires_at?->toISOString(),
+                'created_at' => $order->created_at->toISOString(),
             ]),
             'meta' => [
                 'current_page' => $orders->currentPage(),
@@ -812,39 +980,82 @@ class PhoneController extends Controller
     }
 
     /**
-     * Calculate markup price using admin settings and live exchange rates
+     * Format order response
+     */
+    protected function formatOrderResponse(Order $order): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'phone' => $order->phone_number,
+                'product' => $order->product_name,
+                'operator' => $order->operator ?? $order->provider,
+                'country' => $order->country_code,
+                'provider' => $order->provider,
+                'status' => $order->status,
+                'price' => (float) $order->amount_paid,
+                'sms' => $order->sms_code ? [['code' => $order->sms_code, 'text' => $order->sms_text ?? '']] : [],
+                'expires_at' => $order->expires_at?->toISOString(),
+                'created_at' => $order->created_at->toISOString(),
+            ],
+        ]);
+    }
+
+    /**
+     * Calculate markup price using admin settings and exchange rates
      *
-     * @param float $basePrice Base price in USD from 5SIM API
+     * IMPORTANT: All provider prices are treated as USD.
+     * - GrizzlySMS returns prices in USD
+     * - 5SIM returns prices that should be treated as USD-equivalent
+     *
+     * Formula: Final Price = (API Cost in USD × Exchange Rate × Markup%) + Platform Fee
+     *
+     * @param float $basePrice Base price from provider (in USD)
+     * @param string $baseCurrency Currency label (for logging only, all treated as USD)
      * @return float Final price in NGN
      */
-    protected function calculateMarkupPrice(float $basePrice): float
+    protected function calculateMarkupPrice(float $basePrice, string $baseCurrency = 'USD'): float
     {
         try {
-            // Get live USD to NGN exchange rate
-            $exchangeRate = $this->exchangeRateService->getUsdToNgnRate();
+            // Get USD to NGN exchange rate from admin settings
+            $usdToNgn = $this->exchangeRateService->getUsdToNgnRate();
 
-            // Get markup percentage from admin settings
-            $markupPercentage = Setting::getValue('phone_markup_percentage', 1000);
-            $minPrice = Setting::getValue('phone_min_price', 500);
-            $platformFee = Setting::getValue('phone_platform_fee', 0);
+            // Treat all prices as USD (providers return USD or USD-equivalent amounts)
+            $priceInUsd = $basePrice;
 
             // Convert USD to NGN
-            $priceInNgn = $basePrice * $exchangeRate;
+            $priceInNgn = $priceInUsd * $usdToNgn;
 
-            // Apply markup
+            // Get markup settings
+            $markupPercentage = (float) Setting::getValue('phone_markup_percentage', 200);
+            $minPrice = (float) Setting::getValue('phone_min_price', 500);
+            $platformFee = (float) Setting::getValue('phone_platform_fee', 0);
+
+            // Apply markup (200% = 2x, 300% = 3x, etc.)
             $markupMultiplier = $markupPercentage / 100;
             $finalPrice = ($priceInNgn * $markupMultiplier) + $platformFee;
 
-            return max(round($finalPrice, 2), $minPrice);
-        } catch (\Exception $e) {
-            // Fallback to hardcoded values if anything fails
-            Log::warning('Using default pricing', [
-                'error' => $e->getMessage(),
+            Log::debug('Price calculation', [
+                'base_price_usd' => $priceInUsd,
+                'exchange_rate' => $usdToNgn,
+                'price_ngn_before_markup' => $priceInNgn,
+                'markup_percentage' => $markupPercentage,
+                'markup_multiplier' => $markupMultiplier,
+                'platform_fee' => $platformFee,
+                'final_price' => $finalPrice,
+                'min_price' => $minPrice,
             ]);
 
-            $priceInNgn = $basePrice * 1600; // 1 USD = 1600 NGN (fallback)
-            $finalPrice = $priceInNgn * 10; // 1000% markup = 10x
-            return max(round($finalPrice, 2), 500); // Min ₦500
+            return max(round($finalPrice, 2), $minPrice);
+        } catch (\Exception $e) {
+            Log::warning('Price calculation error, using fallback', ['error' => $e->getMessage()]);
+
+            // Fallback pricing: USD × 1600 × 2 (200% markup)
+            $priceInNgn = $basePrice * 1600;
+            $finalPrice = $priceInNgn * 2;
+            return max(round($finalPrice, 2), 500);
         }
     }
 
@@ -853,41 +1064,85 @@ class PhoneController extends Controller
      */
     protected function getFallbackCountries(): array
     {
+        // Return as object keyed by country code for frontend compatibility
         return [
-            'nigeria' => [
-                'name' => 'Nigeria',
-                'iso' => 234,
-                'prefix' => '+234',
-            ],
-            'usa' => [
-                'name' => 'United States',
-                'iso' => 'us',
-                'prefix' => '+1',
-            ],
-            'england' => [
-                'name' => 'United Kingdom',
-                'iso' => 'gb',
-                'prefix' => '+44',
-            ],
-            'russia' => [
-                'name' => 'Russia',
-                'iso' => 'ru',
-                'prefix' => '+7',
-            ],
-            'india' => [
-                'name' => 'India',
-                'iso' => 'in',
-                'prefix' => '+91',
-            ],
-            'indonesia' => [
-                'name' => 'Indonesia',
-                'iso' => 'id',
-                'prefix' => '+62',
-            ],
-            'philippines' => [
-                'name' => 'Philippines',
-                'iso' => 'ph',
-                'prefix' => '+63',
+            'nigeria' => ['code' => 'nigeria', 'name' => 'Nigeria', 'text_en' => 'Nigeria', 'prefix' => '+234', 'iso' => 'NG'],
+            'usa' => ['code' => 'usa', 'name' => 'United States', 'text_en' => 'United States', 'prefix' => '+1', 'iso' => 'US'],
+            'england' => ['code' => 'england', 'name' => 'United Kingdom', 'text_en' => 'United Kingdom', 'prefix' => '+44', 'iso' => 'GB'],
+            'russia' => ['code' => 'russia', 'name' => 'Russia', 'text_en' => 'Russia', 'prefix' => '+7', 'iso' => 'RU'],
+            'india' => ['code' => 'india', 'name' => 'India', 'text_en' => 'India', 'prefix' => '+91', 'iso' => 'IN'],
+            'indonesia' => ['code' => 'indonesia', 'name' => 'Indonesia', 'text_en' => 'Indonesia', 'prefix' => '+62', 'iso' => 'ID'],
+            'philippines' => ['code' => 'philippines', 'name' => 'Philippines', 'text_en' => 'Philippines', 'prefix' => '+63', 'iso' => 'PH'],
+        ];
+    }
+
+    /**
+     * Get fallback services when API is unavailable
+     */
+    protected function getFallbackServices(string $country = ''): array
+    {
+        $minPrice = (float) Setting::getValue('phone_min_price', 500);
+
+        // Popular services with estimated prices
+        $services = [
+            ['name' => 'whatsapp', 'display_name' => 'WhatsApp', 'quantity' => 100, 'price' => $minPrice * 1.5, 'category' => 'social'],
+            ['name' => 'telegram', 'display_name' => 'Telegram', 'quantity' => 150, 'price' => $minPrice * 1.2, 'category' => 'social'],
+            ['name' => 'google', 'display_name' => 'Google/Gmail', 'quantity' => 200, 'price' => $minPrice * 1.3, 'category' => 'email'],
+            ['name' => 'facebook', 'display_name' => 'Facebook', 'quantity' => 80, 'price' => $minPrice * 1.4, 'category' => 'social'],
+            ['name' => 'instagram', 'display_name' => 'Instagram', 'quantity' => 90, 'price' => $minPrice * 1.6, 'category' => 'social'],
+            ['name' => 'twitter', 'display_name' => 'Twitter/X', 'quantity' => 70, 'price' => $minPrice * 1.3, 'category' => 'social'],
+            ['name' => 'tiktok', 'display_name' => 'TikTok', 'quantity' => 60, 'price' => $minPrice * 1.5, 'category' => 'social'],
+            ['name' => 'amazon', 'display_name' => 'Amazon', 'quantity' => 50, 'price' => $minPrice * 2.0, 'category' => 'shopping'],
+            ['name' => 'microsoft', 'display_name' => 'Microsoft', 'quantity' => 40, 'price' => $minPrice * 1.8, 'category' => 'email'],
+            ['name' => 'yahoo', 'display_name' => 'Yahoo', 'quantity' => 45, 'price' => $minPrice * 1.2, 'category' => 'email'],
+            ['name' => 'discord', 'display_name' => 'Discord', 'quantity' => 55, 'price' => $minPrice * 1.4, 'category' => 'social'],
+            ['name' => 'uber', 'display_name' => 'Uber', 'quantity' => 30, 'price' => $minPrice * 2.5, 'category' => 'transport'],
+            ['name' => 'paypal', 'display_name' => 'PayPal', 'quantity' => 25, 'price' => $minPrice * 3.0, 'category' => 'finance'],
+            ['name' => 'netflix', 'display_name' => 'Netflix', 'quantity' => 35, 'price' => $minPrice * 2.0, 'category' => 'streaming'],
+            ['name' => 'spotify', 'display_name' => 'Spotify', 'quantity' => 40, 'price' => $minPrice * 1.5, 'category' => 'streaming'],
+        ];
+
+        return collect($services)->map(function ($service) {
+            return [
+                'name' => $service['name'],
+                'display_name' => $service['display_name'],
+                'quantity' => $service['quantity'],
+                'base_price' => 0,
+                'base_currency' => 'NGN',
+                'price' => round($service['price'], 2),
+                'category' => $service['category'],
+                'provider' => 'fallback',
+            ];
+        })->sortByDesc('quantity')->values()->toArray();
+    }
+
+    /**
+     * Get fallback operator prices when API is unavailable
+     */
+    protected function getFallbackOperatorPrices(string $product): array
+    {
+        $minPrice = (float) Setting::getValue('phone_min_price', 500);
+
+        // Service-specific pricing multipliers
+        $multipliers = [
+            'whatsapp' => 1.5, 'telegram' => 1.2, 'google' => 1.3,
+            'facebook' => 1.4, 'instagram' => 1.6, 'twitter' => 1.3,
+            'tiktok' => 1.5, 'amazon' => 2.0, 'microsoft' => 1.8,
+            'paypal' => 3.0, 'uber' => 2.5, 'netflix' => 2.0,
+        ];
+
+        $multiplier = $multipliers[$product] ?? 1.5;
+
+        return [
+            [
+                'id' => 'any',
+                'operator' => 'any',
+                'price' => round($minPrice * $multiplier, 2),
+                'base_price' => 0,
+                'currency' => 'NGN',
+                'available' => 50,
+                'success_rate' => null,
+                'provider' => 'fallback',
             ],
         ];
     }

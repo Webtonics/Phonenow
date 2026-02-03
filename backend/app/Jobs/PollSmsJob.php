@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Order;
-use App\Services\FiveSimService;
+use App\Services\SmsProviderManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -22,48 +22,85 @@ class PollSmsJob implements ShouldQueue
         public Order $order
     ) {}
 
-    public function handle(FiveSimService $fiveSimService): void
+    public function handle(SmsProviderManager $providerManager): void
     {
         // Skip if order is not in pollable state
-        if (!in_array($this->order->status, ['pending', 'active'])) {
+        if (!in_array($this->order->status, ['pending', 'processing'])) {
             return;
         }
 
-        // Check order status with 5SIM
-        $result = $fiveSimService->checkOrder(
-            $this->order->external_order_id,
+        // Check if order is expired
+        if ($this->order->isExpired()) {
+            $this->handleExpiredOrder($providerManager);
+            return;
+        }
+
+        // Get the correct provider for this order
+        $provider = $providerManager->getProviderForOrder($this->order);
+
+        $result = $provider->checkOrder(
+            $this->order->provider_order_id,
             $this->order->user_id
         );
 
-        if (!$result['success']) {
+        if (!$result->success) {
             Log::warning('Failed to poll SMS for order', [
                 'order_id' => $this->order->id,
-                'error' => $result['message'] ?? 'Unknown error',
+                'provider' => $provider->getIdentifier(),
+                'error' => $result->errorMessage,
             ]);
+
+            $this->scheduleNextPoll();
             return;
         }
 
-        $orderData = $result['data'];
-        $newStatus = FiveSimService::mapStatus($orderData['status']);
-
         // Update order with new data
-        $this->order->update([
-            'status' => $newStatus,
-            'metadata' => array_merge($this->order->metadata ?? [], [
-                'sms' => $orderData['sms'],
-                'last_polled' => now()->toISOString(),
-            ]),
-        ]);
+        $updateData = ['status' => $result->mappedStatus];
 
-        // If order is still active/pending and not expired, schedule another poll
-        if (in_array($newStatus, ['pending', 'active'])) {
-            $expiresAt = $this->order->metadata['expires'] ?? null;
+        if ($result->hasReceivedSms() && !empty($result->sms)) {
+            $latestSms = end($result->sms);
+            $updateData['sms_code'] = $latestSms->code;
+            $updateData['sms_text'] = $latestSms->text;
+        }
 
-            if ($expiresAt && now()->lt($expiresAt)) {
-                // Poll again in 15 seconds
-                self::dispatch($this->order->fresh())
-                    ->delay(now()->addSeconds(15));
-            }
+        $this->order->update($updateData);
+
+        // Continue polling if still active
+        if (in_array($result->mappedStatus, ['pending', 'processing'])) {
+            $this->scheduleNextPoll();
+        }
+    }
+
+    protected function scheduleNextPoll(): void
+    {
+        if ($this->order->fresh()->isExpired()) {
+            return;
+        }
+
+        $interval = config('sms.polling.interval_seconds', 15);
+
+        self::dispatch($this->order->fresh())
+            ->delay(now()->addSeconds($interval));
+    }
+
+    protected function handleExpiredOrder(SmsProviderManager $providerManager): void
+    {
+        $this->order->update(['status' => 'expired']);
+
+        // Try to cancel with provider
+        try {
+            $provider = $providerManager->getProviderForOrder($this->order);
+            $provider->cancelOrder($this->order->provider_order_id, $this->order->user_id);
+        } catch (\Exception $e) {
+            Log::warning('Failed to cancel expired order with provider', [
+                'order_id' => $this->order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Dispatch job to handle refund if needed
+        if (!$this->order->sms_code) {
+            ProcessExpiredOrdersJob::dispatch();
         }
     }
 }

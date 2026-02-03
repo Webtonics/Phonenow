@@ -112,6 +112,29 @@ export const authService = {
   },
 
   /**
+   * Get dashboard stats
+   */
+  getDashboard: async (): Promise<ApiResponse<{
+    total_spent: number;
+    total_orders: number;
+    active_orders: number;
+    completed_orders: number;
+    recent_orders: Array<{
+      id: number;
+      order_number: string;
+      type: string;
+      status: string;
+      amount_paid: number;
+      product_name: string | null;
+      phone_number: string | null;
+      created_at: string;
+    }>;
+  }>> => {
+    const response = await api.get('/auth/dashboard');
+    return response.data;
+  },
+
+  /**
    * Check if user is authenticated (client-side)
    */
   isAuthenticated: (): boolean => {

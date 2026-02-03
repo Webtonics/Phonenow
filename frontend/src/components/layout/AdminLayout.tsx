@@ -10,7 +10,11 @@ import {
   LogOut,
   Menu,
   X,
-  Phone,
+  Wifi,
+  ChevronRight,
+  Search,
+  Bell,
+  Shield,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,6 +23,7 @@ const adminNavigation = [
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
   { name: 'Services', href: '/admin/services', icon: Package },
+  { name: 'eSIM Management', href: '/admin/esim', icon: Wifi },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
@@ -31,109 +36,252 @@ export const AdminLayout = () => {
     await logout();
   };
 
+  // Get initials for avatar
+  const getInitials = (name: string) => {
+    return name
+      ?.split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || 'A';
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-page-bg)' }}>
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Fixed position */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 bg-gray-900 transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-screen flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{
+          width: '260px',
+          backgroundColor: 'var(--color-sidebar)'
+        }}
       >
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-800">
-            <Link to="/admin/dashboard" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-                <Phone className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">Admin</span>
-            </Link>
-            <button
-              className="lg:hidden p-2 rounded-md text-gray-400 hover:bg-gray-800"
-              onClick={() => setSidebarOpen(false)}
+        {/* Logo & Close Button - Fixed Header */}
+        <div
+          className="flex items-center justify-between px-5 h-16 shrink-0"
+          style={{ borderBottom: '1px solid var(--color-sidebar-border)' }}
+        >
+          <Link to="/admin/dashboard" className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: 'var(--color-accent-500)' }}
             >
-              <X className="w-5 h-5" />
-            </button>
+              <Shield className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-semibold text-white">Admin</span>
+          </Link>
+          <button
+            className="lg:hidden p-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--color-sidebar-text-muted)' }}
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Scrollable Content - Profile and Navigation */}
+        <div className="flex-1 overflow-y-auto sidebar-scrollbar">
+          {/* Admin Profile Section - Compact */}
+          <div className="px-4 pt-4 pb-2">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-11 h-11 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
+                style={{ backgroundColor: 'var(--color-accent-500)' }}
+              >
+                {getInitials(user?.name || '')}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs" style={{ color: 'var(--color-sidebar-text-muted)' }}>
+                  Administrator
+                </p>
+                <p className="text-white font-semibold text-sm truncate">
+                  {user?.name || 'Admin'}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {adminNavigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary-600 text-white'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5 mr-3" />
-                  {item.name}
-                </Link>
-              );
-            })}
+          <nav className="px-3 py-2">
+            <p className="px-3 mb-2 text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-sidebar-text-muted)' }}>
+              Admin Menu
+            </p>
+            <div className="space-y-1">
+              {adminNavigation.map((item) => {
+                const isActive = location.pathname === item.href ||
+                  (item.href !== '/admin/dashboard' && location.pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className="sidebar-nav-item"
+                    style={{
+                      backgroundColor: isActive ? 'var(--color-accent-500)' : 'transparent',
+                      color: isActive ? 'white' : 'var(--color-sidebar-text-muted)',
+                    }}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                    {isActive && <ChevronRight className="w-4 h-4 ml-auto opacity-60" />}
+                  </Link>
+                );
+              })}
+            </div>
           </nav>
+        </div>
 
-          {/* Back to App & Logout */}
-          <div className="p-4 border-t border-gray-800 space-y-2">
-            <Link
-              to="/dashboard"
-              className="flex items-center w-full px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 mr-3" />
-              Back to App
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="flex items-center w-full px-3 py-2 text-sm font-medium text-error-400 hover:bg-gray-800 rounded-lg transition-colors"
-            >
-              <LogOut className="w-5 h-5 mr-3" />
-              Logout
-            </button>
-          </div>
+        {/* Back to App & Logout - Fixed Footer */}
+        <div
+          className="px-3 py-3 shrink-0 space-y-1"
+          style={{ borderTop: '1px solid var(--color-sidebar-border)' }}
+        >
+          <Link
+            to="/dashboard"
+            onClick={() => setSidebarOpen(false)}
+            className="sidebar-nav-item"
+            style={{ color: 'var(--color-sidebar-text-muted)' }}
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to App</span>
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="sidebar-nav-item w-full"
+            style={{ color: 'var(--color-error-400)' }}
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Log Out</span>
+          </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white shadow-sm">
-          <div className="flex items-center justify-between h-16 px-4">
-            <button
-              className="lg:hidden p-2 rounded-md text-gray-500 hover:bg-gray-100"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            <div className="flex-1 text-center lg:text-left">
-              <h1 className="text-lg font-semibold text-gray-900">
-                PhoneNow Admin
-              </h1>
-            </div>
-            <div className="flex items-center">
-              <span className="text-sm text-gray-600 hidden sm:block">
-                {user?.name}
-              </span>
-            </div>
-          </div>
-        </header>
+      {/* Main content - Offset by sidebar width on desktop */}
+      <div
+        className="min-h-screen transition-all duration-300"
+        style={{ marginLeft: '0' }}
+      >
+        {/* Desktop offset */}
+        <div className="hidden lg:block" style={{ marginLeft: '260px' }}>
+          {/* Top bar */}
+          <header
+            className="sticky top-0 z-30 h-16"
+            style={{ backgroundColor: 'var(--color-page-bg)' }}
+          >
+            <div className="flex items-center justify-between h-full px-6">
+              {/* Desktop: Search bar */}
+              <div className="flex items-center flex-1 max-w-xl">
+                <div className="relative w-full">
+                  <Search
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search users, orders..."
+                    className="input-search w-full"
+                    style={{
+                      backgroundColor: 'var(--color-card-bg)',
+                      boxShadow: 'var(--shadow-card)',
+                      border: 'none'
+                    }}
+                  />
+                </div>
+              </div>
 
-        {/* Page content */}
-        <main className="p-4 lg:p-6">
-          <Outlet />
-        </main>
+              {/* Right side actions */}
+              <div className="flex items-center gap-3">
+                {/* Notifications */}
+                <button
+                  className="p-2.5 rounded-xl relative transition-colors"
+                  style={{
+                    backgroundColor: 'var(--color-card-bg)',
+                    color: 'var(--color-text-muted)',
+                    boxShadow: 'var(--shadow-card)'
+                  }}
+                >
+                  <Bell className="w-5 h-5" />
+                  <span
+                    className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
+                    style={{ backgroundColor: 'var(--color-error-500)' }}
+                  />
+                </button>
+
+                {/* Admin badge */}
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium"
+                  style={{
+                    backgroundColor: 'var(--color-accent-100)',
+                    color: 'var(--color-accent-700)'
+                  }}
+                >
+                  <Shield className="w-4 h-4" />
+                  Admin
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Page content - Desktop */}
+          <main className="p-6 animate-fade-in">
+            <Outlet />
+          </main>
+        </div>
+
+        {/* Mobile layout */}
+        <div className="lg:hidden">
+          {/* Mobile Top bar */}
+          <header
+            className="sticky top-0 z-30 h-16"
+            style={{ backgroundColor: 'var(--color-page-bg)' }}
+          >
+            <div className="flex items-center justify-between h-full px-4">
+              {/* Mobile menu button */}
+              <button
+                className="p-2 rounded-xl transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-card-bg)',
+                  color: 'var(--color-text-primary)',
+                  boxShadow: 'var(--shadow-card)'
+                }}
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+
+              {/* Logo */}
+              <span
+                className="text-lg font-semibold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Admin Panel
+              </span>
+
+              {/* User avatar */}
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                style={{ backgroundColor: 'var(--color-accent-500)' }}
+              >
+                {getInitials(user?.name || '')}
+              </div>
+            </div>
+          </header>
+
+          {/* Page content - Mobile */}
+          <main className="p-4 animate-fade-in">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </div>
   );

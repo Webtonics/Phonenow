@@ -54,8 +54,8 @@ class WalletController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'type' => ['sometimes', 'in:deposit,withdrawal,purchase,refund'],
-            'status' => ['sometimes', 'in:pending,completed,failed,cancelled'],
+            'type' => ['sometimes', 'in:credit,debit'],
+            'status' => ['sometimes', 'in:pending,completed,failed'],
             'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
         ]);
 
@@ -97,7 +97,8 @@ class WalletController extends Controller
 
         // Check for pending transactions
         $hasPendingTransaction = Transaction::where('user_id', $user->id)
-            ->where('type', 'deposit')
+            ->where('type', 'credit')
+            ->where('payment_method', 'flutterwave')
             ->where('status', 'pending')
             ->where('created_at', '>', now()->subHours(1))
             ->exists();
@@ -143,7 +144,7 @@ class WalletController extends Controller
         // Find the transaction
         $transaction = Transaction::where('reference', $validated['reference'])
             ->where('user_id', $user->id)
-            ->where('type', 'deposit')
+            ->where('type', 'credit')
             ->first();
 
         if (!$transaction) {
@@ -196,10 +197,7 @@ class WalletController extends Controller
         if ($paymentData['status'] !== 'successful') {
             $transaction->update([
                 'status' => 'failed',
-                'metadata' => array_merge($transaction->metadata ?? [], [
-                    'flw_status' => $paymentData['status'],
-                    'verified_at' => now()->toISOString(),
-                ]),
+                'flutterwave_ref' => $paymentData['flw_ref'] ?? null,
             ]);
 
             return response()->json([
@@ -227,18 +225,20 @@ class WalletController extends Controller
         DB::beginTransaction();
 
         try {
-            // Update transaction
-            $transaction->update([
-                'status' => 'completed',
-                'metadata' => array_merge($transaction->metadata ?? [], [
-                    'flw_ref' => $paymentData['flw_ref'],
-                    'flw_transaction_id' => $paymentData['transaction_id'],
-                    'verified_at' => now()->toISOString(),
-                ]),
-            ]);
+            $balanceBefore = $user->balance;
 
             // Credit user wallet
             $user->addBalance($transaction->amount);
+            $user->refresh();
+            $balanceAfter = $user->balance;
+
+            // Update transaction
+            $transaction->update([
+                'status' => 'completed',
+                'flutterwave_ref' => $paymentData['flw_ref'],
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+            ]);
 
             DB::commit();
 
@@ -291,13 +291,35 @@ class WalletController extends Controller
                 'id' => $transaction->id,
                 'type' => $transaction->type,
                 'amount' => (float) $transaction->amount,
-                'currency' => $transaction->currency,
+                'balance_before' => (float) $transaction->balance_before,
+                'balance_after' => (float) $transaction->balance_after,
                 'status' => $transaction->status,
                 'reference' => $transaction->reference,
                 'description' => $transaction->description,
                 'payment_method' => $transaction->payment_method,
                 'created_at' => $transaction->created_at,
                 'updated_at' => $transaction->updated_at,
+            ],
+        ]);
+    }
+
+    /**
+     * Clear pending Flutterwave transactions (for testing/debugging)
+     */
+    public function clearPendingTransactions(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $deleted = Transaction::where('user_id', $user->id)
+            ->where('status', 'pending')
+            ->where('payment_method', 'flutterwave')
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Cleared {$deleted} pending transaction(s)",
+            'data' => [
+                'deleted' => $deleted,
             ],
         ]);
     }

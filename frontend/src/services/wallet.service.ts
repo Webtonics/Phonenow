@@ -12,7 +12,7 @@ interface WalletData {
 
 interface FundingResponse {
   reference: string;
-  payment_link: string;
+  link: string;
 }
 
 interface VerifyResponse {
@@ -78,6 +78,14 @@ export const walletService = {
    */
   getTransaction: async (reference: string): Promise<ApiResponse<Transaction>> => {
     const response = await api.get<ApiResponse<Transaction>>(`/wallet/transactions/${reference}`);
+    return response.data;
+  },
+
+  /**
+   * Clear pending Flutterwave transactions
+   */
+  clearPending: async (): Promise<ApiResponse<{ deleted: number }>> => {
+    const response = await api.post<ApiResponse<{ deleted: number }>>('/wallet/clear-pending');
     return response.data;
   },
 };

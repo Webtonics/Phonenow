@@ -42,9 +42,9 @@ export interface Transaction {
 // Service types
 export interface Service {
   id: number;
-  category: 'phone_number' | 'smm';
+  category: 'phone_number' | 'esim';
   name: string;
-  provider: '5sim' | 'peakerr';
+  provider: '5sim' | 'zendit';
   provider_service_code: string;
   cost_price: number;
   retail_price: number;
@@ -70,20 +70,17 @@ export interface Order {
   user_id: number;
   service_id: number;
   order_number: string;
-  type: 'phone_number' | 'smm';
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded';
+  type: 'phone_number' | 'esim';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'cancelled' | 'expired';
   amount_paid: number;
-  provider: '5sim' | 'peakerr';
+  provider: '5sim' | 'zendit';
   provider_order_id: string | null;
   // Phone number fields
   phone_number: string | null;
   sms_code: string | null;
   sms_text: string | null;
-  // SMM fields
-  smm_link: string | null;
-  smm_quantity: number | null;
-  smm_start_count: number | null;
-  smm_remains: number | null;
+  product_name: string | null;
+  country_code: string | null;
   // Common
   completed_at: string | null;
   expires_at: string | null;
@@ -157,13 +154,6 @@ export interface AdminDashboardStats {
   recent_transactions: Transaction[];
 }
 
-// SMM Categories
-export interface SMMCategory {
-  name: string;
-  icon: string;
-  count: number;
-}
-
 // Form types
 export interface LoginForm {
   email: string;
@@ -176,6 +166,7 @@ export interface RegisterForm {
   phone: string;
   password: string;
   password_confirmation: string;
+  ref?: string;
 }
 
 export interface ForgotPasswordForm {
@@ -207,12 +198,6 @@ export interface PhonePurchaseForm {
   service_id: number;
 }
 
-export interface SMMPurchaseForm {
-  service_id: number;
-  link: string;
-  quantity?: number;
-}
-
 export interface AdminCreditUserForm {
   amount: number;
   reason?: string;
@@ -225,3 +210,6 @@ export interface AdminUpdateServiceForm {
   reseller_price?: number;
   is_active?: boolean;
 }
+
+// Re-export eSIM types
+export * from './esim';

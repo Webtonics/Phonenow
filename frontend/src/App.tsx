@@ -21,10 +21,16 @@ import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { WalletPage } from '@/pages/dashboard/WalletPage';
 import { WalletSuccessPage } from '@/pages/dashboard/WalletSuccessPage';
 import { PhoneNumbersPage } from '@/pages/dashboard/PhoneNumbersPage';
-import { SMMServicesPage } from '@/pages/dashboard/SMMServicesPage';
 import { OrdersPage } from '@/pages/dashboard/OrdersPage';
 import { OrderDetailPage } from '@/pages/dashboard/OrderDetailPage';
 import { ProfilePage } from '@/pages/dashboard/ProfilePage';
+import { ESIMPackagesPage } from '@/pages/dashboard/ESIMPackagesPage';
+import { ESIMPurchasePage } from '@/pages/dashboard/ESIMPurchasePage';
+import { MyESIMsPage } from '@/pages/dashboard/MyESIMsPage';
+import { ESIMProfileDetailPage } from '@/pages/dashboard/ESIMProfileDetailPage';
+import { ReferralsPage } from '@/pages/dashboard/ReferralsPage';
+import { ReferralsListPage } from '@/pages/dashboard/ReferralsListPage';
+import { CommissionsPage } from '@/pages/dashboard/CommissionsPage';
 
 // Admin pages
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
@@ -33,6 +39,7 @@ import { AdminUserDetailPage } from '@/pages/admin/AdminUserDetailPage';
 import { AdminOrdersPage } from '@/pages/admin/AdminOrdersPage';
 import { AdminServicesPage } from '@/pages/admin/AdminServicesPage';
 import { AdminSettingsPage } from '@/pages/admin/AdminSettingsPage';
+import { AdminESIMPage } from '@/pages/admin/AdminESIMPage';
 
 // Loading component
 const LoadingScreen = () => (
@@ -146,10 +153,16 @@ function AppRoutes() {
         <Route path="/wallet" element={<WalletPage />} />
         <Route path="/wallet/success" element={<WalletSuccessPage />} />
         <Route path="/phone-numbers" element={<PhoneNumbersPage />} />
-        <Route path="/smm-services" element={<SMMServicesPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/esim/packages" element={<ESIMPackagesPage />} />
+        <Route path="/esim/purchase/:id" element={<ESIMPurchasePage />} />
+        <Route path="/esim/my-profiles" element={<MyESIMsPage />} />
+        <Route path="/esim/profile/:id" element={<ESIMProfileDetailPage />} />
+        <Route path="/referrals" element={<ReferralsPage />} />
+        <Route path="/referrals/list" element={<ReferralsListPage />} />
+        <Route path="/referrals/commissions" element={<CommissionsPage />} />
       </Route>
 
       {/* Admin routes */}
@@ -165,6 +178,7 @@ function AppRoutes() {
         <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="/admin/services" element={<AdminServicesPage />} />
+        <Route path="/admin/esim" element={<AdminESIMPage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
       </Route>
 

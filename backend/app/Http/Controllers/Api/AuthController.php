@@ -12,6 +12,7 @@ use App\Mail\ResetPassword;
 use App\Mail\VerifyEmail;
 use App\Models\EmailVerification;
 use App\Models\User;
+use App\Services\ReferralService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +54,16 @@ class AuthController extends Controller
             // Send verification email
             Mail::to($user->email)->send(new VerifyEmail($user, $token));
 
+            // Process referral if referral code provided
+            $referralMessage = '';
+            if ($request->has('ref') && $request->ref) {
+                $referralService = new ReferralService();
+                $referralResult = $referralService->processSignup($user, $request->ref);
+                if ($referralResult['success']) {
+                    $referralMessage = ' ' . $referralResult['message'];
+                }
+            }
+
             // Create API token for the user
             $apiToken = $user->createToken('auth_token')->plainTextToken;
 
@@ -60,7 +71,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Registration successful. Please check your email to verify your account.',
+                'message' => 'Registration successful. Please check your email to verify your account.' . $referralMessage,
                 'data' => [
                     'user' => [
                         'id' => $user->id,
@@ -417,6 +428,56 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Password changed successfully.',
+        ]);
+    }
+
+    /**
+     * Get user dashboard statistics
+     */
+    public function dashboard(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Get total spent (all completed debit transactions)
+        $totalSpent = \App\Models\Transaction::where('user_id', $user->id)
+            ->where('type', 'debit')
+            ->where('status', 'completed')
+            ->sum('amount');
+
+        // Get order stats
+        $totalOrders = \App\Models\Order::where('user_id', $user->id)->count();
+        $activeOrders = \App\Models\Order::where('user_id', $user->id)
+            ->whereIn('status', ['pending', 'processing'])
+            ->count();
+        $completedOrders = \App\Models\Order::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->count();
+
+        // Get recent orders
+        $recentOrders = \App\Models\Order::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(fn($order) => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'type' => $order->type,
+                'status' => $order->status,
+                'amount_paid' => (float) $order->amount_paid,
+                'product_name' => $order->product_name,
+                'phone_number' => $order->phone_number,
+                'created_at' => $order->created_at->toISOString(),
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total_spent' => (float) $totalSpent,
+                'total_orders' => $totalOrders,
+                'active_orders' => $activeOrders,
+                'completed_orders' => $completedOrders,
+                'recent_orders' => $recentOrders,
+            ],
         ]);
     }
 }

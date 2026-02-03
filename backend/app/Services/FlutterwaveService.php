@@ -31,7 +31,7 @@ class FlutterwaveService
             'tx_ref' => $reference,
             'amount' => $amount,
             'currency' => $currency,
-            'redirect_url' => config('app.frontend_url') . '/wallet/verify',
+            'redirect_url' => config('app.frontend_url') . '/wallet/success',
             'customer' => [
                 'email' => $user->email,
                 'name' => $user->name,
@@ -72,16 +72,15 @@ class FlutterwaveService
                 // Create pending transaction
                 Transaction::create([
                     'user_id' => $user->id,
-                    'type' => 'deposit',
+                    'type' => 'credit',
                     'amount' => $amount,
-                    'currency' => $currency,
+                    'balance_before' => $user->balance,
+                    'balance_after' => $user->balance,
+                    'description' => 'Wallet funding via Flutterwave',
                     'status' => 'pending',
                     'reference' => $reference,
                     'payment_method' => 'flutterwave',
-                    'metadata' => [
-                        'flw_ref' => $data['data']['flw_ref'] ?? null,
-                        'link' => $data['data']['link'] ?? null,
-                    ],
+                    'flutterwave_ref' => $data['data']['flw_ref'] ?? null,
                 ]);
 
                 return [
@@ -89,7 +88,7 @@ class FlutterwaveService
                     'message' => 'Payment initialized successfully',
                     'data' => [
                         'reference' => $reference,
-                        'payment_link' => $data['data']['link'],
+                        'link' => $data['data']['link'],
                     ],
                 ];
             }

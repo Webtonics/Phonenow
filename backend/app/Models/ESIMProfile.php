@@ -93,7 +93,7 @@ class ESIMProfile extends Model
      */
     public function subscriptions(): HasMany
     {
-        return $this->hasMany(ESIMSubscription::class);
+        return $this->hasMany(ESIMSubscription::class, 'esim_profile_id');
     }
 
     /**
@@ -101,7 +101,7 @@ class ESIMProfile extends Model
      */
     public function activeSubscriptions(): HasMany
     {
-        return $this->subscriptions()->where('status', 'active');
+        return $this->hasMany(ESIMSubscription::class, 'esim_profile_id')->where('status', 'active');
     }
 
     /**

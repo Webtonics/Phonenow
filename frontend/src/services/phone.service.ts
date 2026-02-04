@@ -7,6 +7,7 @@ interface PhoneService {
   quantity: number;
   base_price: number;
   price: number;
+  min_price?: number;
   category: string;
 }
 

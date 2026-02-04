@@ -224,17 +224,25 @@ class PhoneController extends Controller
             }
 
             // Format products with pricing (calculated fresh each time)
-            $formattedProducts = collect($rawProducts)->map(function ($product) {
+            $formattedProducts = collect($rawProducts)->map(function ($product) use ($country) {
                 $basePrice = $product['base_price'] ?? 0;
                 $baseCurrency = $product['base_currency'] ?? 'RUB';
+                $productCode = $product['code'];
+
+                // Calculate default price from product base price
+                $defaultPrice = $this->calculateMarkupPrice($basePrice, $baseCurrency);
+
+                // Try to get minimum operator price from cached aggregated prices
+                $minPrice = $this->getMinimumOperatorPrice($country, $productCode, $defaultPrice);
 
                 return [
-                    'name' => $product['code'],
+                    'name' => $productCode,
                     'display_name' => $product['display_name'],
                     'quantity' => $product['quantity'],
                     'base_price' => $basePrice,
                     'base_currency' => $baseCurrency,
-                    'price' => $this->calculateMarkupPrice($basePrice, $baseCurrency),
+                    'price' => $defaultPrice,
+                    'min_price' => $minPrice,
                     'category' => $product['category'] ?? 'other',
                     'provider' => $product['provider'] ?? null,
                 ];
@@ -1060,6 +1068,46 @@ class PhoneController extends Controller
     }
 
     /**
+     * Get the minimum operator price for a product from cached aggregated prices
+     * Uses cache only for performance - falls back to default price if not cached
+     *
+     * @param string $country
+     * @param string $product
+     * @param float $defaultPrice Fallback price if no operator prices available
+     * @return float Minimum price in NGN
+     */
+    protected function getMinimumOperatorPrice(string $country, string $product, float $defaultPrice): float
+    {
+        try {
+            // Check cache only - don't make fresh API calls for performance
+            $cacheKey = "sms_aggregated_prices_{$country}_{$product}";
+            $cachedPrices = Cache::get($cacheKey);
+
+            if ($cachedPrices === null || $cachedPrices->isEmpty()) {
+                return $defaultPrice;
+            }
+
+            // Find the minimum cost from cached operator prices
+            $minCost = $cachedPrices->min('cost');
+            if ($minCost === null || $minCost <= 0) {
+                return $defaultPrice;
+            }
+
+            // Calculate the marked-up price for the minimum cost
+            $minPrice = $this->calculateMarkupPrice($minCost, 'USD');
+
+            return $minPrice;
+        } catch (\Exception $e) {
+            Log::debug('Failed to get minimum operator price', [
+                'country' => $country,
+                'product' => $product,
+                'error' => $e->getMessage(),
+            ]);
+            return $defaultPrice;
+        }
+    }
+
+    /**
      * Get fallback countries list when API is unavailable
      */
     protected function getFallbackCountries(): array
@@ -1103,13 +1151,15 @@ class PhoneController extends Controller
         ];
 
         return collect($services)->map(function ($service) {
+            $price = round($service['price'], 2);
             return [
                 'name' => $service['name'],
                 'display_name' => $service['display_name'],
                 'quantity' => $service['quantity'],
                 'base_price' => 0,
                 'base_currency' => 'NGN',
-                'price' => round($service['price'], 2),
+                'price' => $price,
+                'min_price' => $price,
                 'category' => $service['category'],
                 'provider' => 'fallback',
             ];

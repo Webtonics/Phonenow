@@ -172,12 +172,19 @@ class ESIMPurchaseService
                 'amount' => $package->selling_price,
             ]);
 
+            // Determine user-friendly message based on status
+            $isPending = $this->zenditService->isProcessing($zenditStatus);
+            $message = $isPending
+                ? 'eSIM purchased! Your eSIM credentials are being prepared. This usually takes a few seconds - check "My eSIMs" to view when ready.'
+                : 'eSIM profile purchased successfully';
+
             return [
                 'success' => true,
-                'message' => 'eSIM profile purchased successfully',
+                'message' => $message,
                 'data' => [
                     'profile' => $this->formatProfileResponse($profile),
                     'new_balance' => $balanceAfter,
+                    'is_pending' => $isPending,
                 ],
             ];
 

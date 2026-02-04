@@ -13,6 +13,7 @@ import {
   Filter,
   Zap,
   X,
+  WifiOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { phoneService, getErrorMessage } from '@/services';
@@ -42,6 +43,7 @@ interface Service {
   quantity: number;
   base_price: number;
   price: number;
+  min_price?: number;
   category: string;
 }
 
@@ -134,6 +136,7 @@ export const PhoneNumbersPage = () => {
   const [operatorPrices, setOperatorPrices] = useState<OperatorPrice[]>([]);
   const [loadingOperators, setLoadingOperators] = useState(false);
   const [purchasingOperator, setPurchasingOperator] = useState<string | null>(null);
+  const [operatorError, setOperatorError] = useState<string | null>(null);
 
   // Debounced country for API calls
   const debouncedCountry = useDebounce(selectedCountry, 300);
@@ -269,6 +272,14 @@ export const PhoneNumbersPage = () => {
     setShowPricingModal(true);
     setLoadingOperators(true);
     setOperatorPrices([]);
+    setOperatorError(null);
+
+    // Check if offline before making request
+    if (!navigator.onLine) {
+      setOperatorError('No internet connection. Please check your network and try again.');
+      setLoadingOperators(false);
+      return;
+    }
 
     try {
       const response = await phoneService.getOperatorPrices(selectedCountry, service.name);
@@ -276,15 +287,36 @@ export const PhoneNumbersPage = () => {
         // Sort by price (cheapest first)
         const sorted = [...response.data.data].sort((a, b) => a.price - b.price);
         setOperatorPrices(sorted);
+        setOperatorError(null);
       } else {
-        toast.error('Failed to load pricing options');
-        setShowPricingModal(false);
+        setOperatorError('Failed to load pricing options. Please try again.');
       }
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-      setShowPricingModal(false);
+    } catch (error: unknown) {
+      // Check for network/offline errors
+      const isNetworkError =
+        !navigator.onLine ||
+        (error instanceof Error && (
+          error.message === 'Network Error' ||
+          error.message.toLowerCase().includes('network') ||
+          error.message.toLowerCase().includes('failed to fetch') ||
+          (error as { code?: string }).code === 'ERR_NETWORK'
+        ));
+
+      if (isNetworkError) {
+        setOperatorError('No internet connection. Please check your network and try again.');
+      } else {
+        const message = getErrorMessage(error);
+        setOperatorError(message || 'Failed to load prices. Please try again.');
+      }
     } finally {
       setLoadingOperators(false);
+    }
+  };
+
+  // Retry fetching operator prices
+  const retryFetchOperatorPrices = () => {
+    if (selectedService) {
+      handleBuyNumber(selectedService);
     }
   };
 
@@ -319,6 +351,7 @@ export const PhoneNumbersPage = () => {
     setShowPricingModal(false);
     setSelectedService(null);
     setOperatorPrices([]);
+    setOperatorError(null);
   };
 
   // Get country flag URL from flagsapi.com
@@ -636,16 +669,11 @@ export const PhoneNumbersPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-3 sm:pt-4 border-t-2 border-gray-100 gap-3 sm:gap-0">
-                    <div>
-                      <p className={`text-2xl sm:text-3xl font-bold ${isPopular ? 'text-orange-600' : 'text-primary-600'}`}>
-                        ₦{service.price.toLocaleString()}
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-end pt-3 sm:pt-4 border-t-2 border-gray-100">
                     <button
                       onClick={() => handleBuyNumber(service)}
                       disabled={service.quantity === 0}
-                      className={`w-full sm:w-auto px-5 sm:px-7 py-2.5 sm:py-3 rounded-xl font-bold transition-all shadow-md text-sm sm:text-base ${
+                      className={`w-full px-5 sm:px-7 py-2.5 sm:py-3 rounded-xl font-bold transition-all shadow-md text-sm sm:text-base ${
                         service.quantity === 0
                           ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
                           : isPopular
@@ -708,6 +736,31 @@ export const PhoneNumbersPage = () => {
                       <div className="w-12 h-12 rounded-full border-4 border-primary-600 border-t-transparent animate-spin absolute inset-0"></div>
                     </div>
                     <p className="text-gray-500 mt-4 font-medium">Finding best prices...</p>
+                  </div>
+                ) : operatorError ? (
+                  <div className="text-center py-16">
+                    {operatorError.toLowerCase().includes('internet') || operatorError.toLowerCase().includes('network') ? (
+                      <>
+                        <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <WifiOff className="w-8 h-8 text-orange-500" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">No Internet Connection</h4>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <AlertCircle className="w-8 h-8 text-red-500" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Prices</h4>
+                      </>
+                    )}
+                    <p className="text-gray-500 text-sm mb-6">{operatorError}</p>
+                    <button
+                      onClick={retryFetchOperatorPrices}
+                      className="px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl font-semibold hover:from-primary-700 hover:to-primary-600 transition-all shadow-md hover:shadow-lg"
+                    >
+                      Try Again
+                    </button>
                   </div>
                 ) : availableOptions.length === 0 ? (
                   <div className="text-center py-16">

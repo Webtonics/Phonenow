@@ -155,6 +155,20 @@ class ESIMPackageService
         $offerId = $offer['offerId'];
         $priceUsd = (float) ($offer['price'] ?? 0);
 
+        // Debug: Log first few offers to see actual API response structure
+        static $loggedCount = 0;
+        if ($loggedCount < 5) {
+            Log::info('Zendit offer sample', [
+                'offerId' => $offerId,
+                'raw_price' => $offer['price'] ?? 'NOT_SET',
+                'parsed_price_usd' => $priceUsd,
+                'country' => $offer['country'] ?? 'N/A',
+                'dataGB' => $offer['dataGB'] ?? 'N/A',
+                'offer_keys' => array_keys($offer),
+            ]);
+            $loggedCount++;
+        }
+
         // Determine package type - Zendit doesn't have explicit profile/topup distinction
         // We'll treat all as 'profile' since they're new eSIM purchases
         $packageType = 'profile';

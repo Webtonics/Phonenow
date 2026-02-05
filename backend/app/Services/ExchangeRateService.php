@@ -79,4 +79,39 @@ class ExchangeRateService
     {
         return self::DEFAULT_RATE;
     }
+
+    /**
+     * Fetch and update the exchange rate from external API
+     */
+    public function updateExchangeRate(): void
+    {
+        try {
+            // Using a reliable free API endpoint (exchangerate-api.com)
+            // In a production env, this URL should be in config/services.php
+            $response = \Illuminate\Support\Facades\Http::timeout(10)
+                ->get('https://api.exchangerate-api.com/v4/latest/USD');
+
+            if ($response->successful()) {
+                $rates = $response->json();
+                $ngnRate = $rates['rates']['NGN'] ?? null;
+
+                if ($ngnRate) {
+                    $this->setRate((float) $ngnRate);
+                } else {
+                    Log::error('NGN rate not found in API response');
+                }
+            } else {
+                Log::error('Exchange rate API returned error status', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Log the error but allow the application to continue using the last known rate
+            Log::error('Failed to update exchange rate from API', [
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
 }

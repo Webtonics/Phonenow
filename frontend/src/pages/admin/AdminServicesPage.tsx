@@ -13,7 +13,7 @@ import { adminService } from '@/services';
 
 interface PricingSettings {
   phone_markup_percentage: number;
-  phone_exchange_rate: number;
+  usd_to_ngn_rate: number;
   phone_min_price: number;
   phone_platform_fee: number;
   min_deposit: number;
@@ -26,7 +26,7 @@ export const AdminServicesPage = () => {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<PricingSettings>({
     phone_markup_percentage: 200,
-    phone_exchange_rate: 0,
+    usd_to_ngn_rate: 0,
     phone_min_price: 500,
     phone_platform_fee: 0,
     min_deposit: 1000,
@@ -56,7 +56,7 @@ export const AdminServicesPage = () => {
     try {
       const response = await adminService.updatePricingSettings({
         phone_markup_percentage: settings.phone_markup_percentage,
-        phone_exchange_rate: settings.phone_exchange_rate,
+        usd_to_ngn_rate: settings.usd_to_ngn_rate,
         phone_min_price: settings.phone_min_price,
         phone_platform_fee: settings.phone_platform_fee,
         min_deposit: settings.min_deposit,
@@ -161,8 +161,8 @@ export const AdminServicesPage = () => {
               </label>
               <input
                 type="number"
-                value={settings.phone_exchange_rate}
-                onChange={(e) => handleChange('phone_exchange_rate', parseFloat(e.target.value) || 0)}
+                value={settings.usd_to_ngn_rate}
+                onChange={(e) => handleChange('usd_to_ngn_rate', parseFloat(e.target.value) || 0)}
                 className="input-field w-full"
                 placeholder="Leave 0 to use live rate"
               />
@@ -274,8 +274,8 @@ export const AdminServicesPage = () => {
               </thead>
               <tbody className="divide-y">
                 {[0.10, 0.25, 0.50, 1.00, 2.00, 5.00].map((cost) => {
-                  const rate = settings.phone_exchange_rate > 0
-                    ? settings.phone_exchange_rate
+                  const rate = settings.usd_to_ngn_rate > 0
+                    ? settings.usd_to_ngn_rate
                     : (settings.current_exchange_rate || 1600);
                   const inNgn = cost * rate;
                   const afterMarkup = inNgn * (settings.phone_markup_percentage / 100);
@@ -296,7 +296,7 @@ export const AdminServicesPage = () => {
             </table>
           </div>
           <p className="text-xs text-gray-500 mt-3">
-            * Using exchange rate: ₦{(settings.phone_exchange_rate > 0 ? settings.phone_exchange_rate : (settings.current_exchange_rate || 1600)).toLocaleString()} per USD
+            * Using exchange rate: ₦{(settings.usd_to_ngn_rate > 0 ? settings.usd_to_ngn_rate : (settings.current_exchange_rate || 1600)).toLocaleString()} per USD
           </p>
         </div>
       </div>

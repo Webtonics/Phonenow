@@ -105,7 +105,8 @@ export const ResetPasswordPage = () => {
               id="password"
               type={showPassword ? 'text' : 'password'}
               {...register('password')}
-              className={`input pr-10 ${errors.password ? 'input-error' : ''}`}
+              className={`input ${errors.password ? 'input-error' : ''}`}
+              style={{ paddingRight: '2.5rem' }}
               placeholder="Create a strong password"
             />
             <button
@@ -136,9 +137,9 @@ export const ResetPasswordPage = () => {
               id="confirm_password"
               type={showConfirmPassword ? 'text' : 'password'}
               {...register('confirm_password')}
-              className={`input pr-10 ${
-                errors.confirm_password ? 'input-error' : ''
-              }`}
+              className={`input ${errors.confirm_password ? 'input-error' : ''
+                }`}
+              style={{ paddingRight: '2.5rem' }}
               placeholder="Confirm your password"
             />
             <button

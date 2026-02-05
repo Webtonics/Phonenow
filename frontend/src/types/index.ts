@@ -37,6 +37,7 @@ export interface Transaction {
   flutterwave_ref: string | null;
   created_at: string;
   updated_at: string;
+  user?: User;
 }
 
 // Service types

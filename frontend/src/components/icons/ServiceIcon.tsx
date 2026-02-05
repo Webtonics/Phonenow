@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { IconType } from 'react-icons';
 import { HiGlobeAlt } from 'react-icons/hi';
 import {
@@ -104,9 +105,55 @@ export const ServiceIcon = ({
   const Icon = SERVICE_ICONS[normalizedService];
   const color = colored ? SERVICE_COLORS[normalizedService] : 'currentColor';
 
-  // If we have an SVG icon, use it
+  // State to track which image source we are trying
+  // 0 = Simple Icons CDN
+  // 1 = Google Favicon URL
+  // 2 = Fallback Globe
+  const [imgSourceLevel, setImgSourceLevel] = useState(0);
+
+  // Reset state when service changes
+  useEffect(() => {
+    setImgSourceLevel(0);
+  }, [normalizedService]);
+
+  // If we have an internal SVG icon, use it immediately
   if (Icon) {
     return <Icon size={size} color={color} className={className} />;
+  }
+
+  const handleImgError = () => {
+    setImgSourceLevel(prev => prev + 1);
+  };
+
+  if (imgSourceLevel === 0) {
+    return (
+      <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+        <img
+          src={`https://cdn.simpleicons.org/${normalizedService}`}
+          alt={normalizedService}
+          width={size}
+          height={size}
+          className={`object-contain transition-opacity duration-300 ${colored ? '' : 'grayscale'}`}
+          onError={handleImgError}
+        />
+      </div>
+    );
+  }
+
+  if (imgSourceLevel === 1) {
+    // Try Google Favicons as a robust fallback
+    return (
+      <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${normalizedService}.com&sz=128`}
+          alt={normalizedService}
+          width={size}
+          height={size}
+          className="object-contain rounded-sm"
+          onError={handleImgError}
+        />
+      </div>
+    );
   }
 
   // Fallback to generic globe icon

@@ -72,7 +72,8 @@ export const LoginPage = () => {
               type="email"
               autoComplete="email"
               {...register('email')}
-              className={`input pl-10 ${errors.email ? 'input-error' : ''}`}
+              className={`input ${errors.email ? 'input-error' : ''}`}
+              style={{ paddingLeft: '3rem' }}
               placeholder="you@example.com"
             />
           </div>
@@ -96,7 +97,8 @@ export const LoginPage = () => {
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               {...register('password')}
-              className={`input pl-10 pr-10 ${errors.password ? 'input-error' : ''}`}
+              className={`input ${errors.password ? 'input-error' : ''}`}
+              style={{ paddingLeft: '3rem', paddingRight: '2.5rem' }}
               placeholder="Enter your password"
             />
             <button

@@ -188,21 +188,29 @@ function AppRoutes() {
   );
 }
 
+
+// Network components
+import { NetworkProvider } from '@/stores/NetworkContext';
+import { OfflineBanner } from '@/components/common/OfflineBanner';
+
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <AppRoutes />
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-          toastOptions={{
-            duration: 4000,
-          }}
-        />
-      </AuthProvider>
-    </Router>
+    <NetworkProvider>
+      <Router>
+        <AuthProvider>
+          <AppRoutes />
+          <OfflineBanner />
+          <Toaster
+            position="top-right"
+            richColors
+            closeButton
+            toastOptions={{
+              duration: 4000,
+            }}
+          />
+        </AuthProvider>
+      </Router>
+    </NetworkProvider>
   );
 }
 

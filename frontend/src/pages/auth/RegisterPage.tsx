@@ -200,7 +200,8 @@ export const RegisterPage = () => {
               id="password"
               type={showPassword ? 'text' : 'password'}
               {...register('password')}
-              className={`input pr-10 ${errors.password ? 'input-error' : ''}`}
+              className={`input ${errors.password ? 'input-error' : ''}`}
+              style={{ paddingRight: '2.5rem' }}
               placeholder="Create a strong password"
             />
             <button
@@ -247,9 +248,9 @@ export const RegisterPage = () => {
               id="password_confirmation"
               type={showConfirmPassword ? 'text' : 'password'}
               {...register('password_confirmation')}
-              className={`input pr-10 ${
-                errors.password_confirmation ? 'input-error' : ''
-              }`}
+              className={`input ${errors.password_confirmation ? 'input-error' : ''
+                }`}
+              style={{ paddingRight: '2.5rem' }}
               placeholder="Confirm your password"
             />
             <button

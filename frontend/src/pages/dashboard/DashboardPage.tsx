@@ -185,7 +185,7 @@ export const DashboardPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
@@ -220,7 +220,7 @@ export const DashboardPage = () => {
             </div>
           </div>
         </div>
-        <div className="card">
+        <div className="card sm:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Completed Orders</p>
@@ -269,9 +269,10 @@ export const DashboardPage = () => {
                     <p className="font-medium text-gray-900 truncate">
                       {order.product_name || order.phone_number || order.order_number}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs text-gray-500">
                       <span>{new Date(order.created_at).toLocaleDateString()}</span>
-                      {getStatusIcon(order.status)}
+                      <span className="hidden sm:inline">•</span>
+                      <span className="flex items-center gap-1">{getStatusIcon(order.status)} <span className="capitalize">{order.status}</span></span>
                     </div>
                   </div>
                 </div>
@@ -279,9 +280,6 @@ export const DashboardPage = () => {
                   <p className="font-semibold text-gray-900">
                     ₦{order.amount_paid.toLocaleString()}
                   </p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </span>
                 </div>
               </Link>
             ))}

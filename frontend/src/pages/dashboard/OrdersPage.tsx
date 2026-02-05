@@ -197,11 +197,10 @@ export const OrdersPage = () => {
           <button
             key={status}
             onClick={() => setFilter(status)}
-            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors ${
-              filter === status
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors ${filter === status
                 ? 'bg-primary-600 text-white shadow-md'
                 : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
+              }`}
           >
             {status.charAt(0).toUpperCase() + status.slice(1)}
           </button>
@@ -258,13 +257,13 @@ export const OrdersPage = () => {
 
                   {/* Order Details */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 mb-3">
-                    <div className="col-span-2 sm:col-span-1">
+                    <div className="col-span-2 xs:col-span-1">
                       <p className="text-xs text-gray-500 mb-1">Phone Number</p>
                       <p className="font-mono text-xs sm:text-sm font-medium text-gray-900 truncate">
                         {order.phone}
                       </p>
                     </div>
-                    <div className="hidden sm:block">
+                    <div className="hidden xs:block sm:block">
                       <p className="text-xs text-gray-500 mb-1">Country</p>
                       <p className="text-xs sm:text-sm font-medium text-gray-900 capitalize truncate">
                         {order.country}

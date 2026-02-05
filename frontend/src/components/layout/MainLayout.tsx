@@ -61,31 +61,23 @@ export const MainLayout = () => {
 
       {/* Sidebar - Fixed position */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-screen flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-        style={{
-          width: '260px',
-          backgroundColor: 'var(--color-sidebar)'
-        }}
+        className={`fixed top-0 left-0 z-50 h-screen flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0 w-[260px] bg-[var(--color-sidebar)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         {/* Logo & Close Button - Fixed Header */}
         <div
-          className="flex items-center justify-between px-5 h-16 shrink-0"
-          style={{ borderBottom: '1px solid var(--color-sidebar-border)' }}
+          className="flex items-center justify-between px-5 h-16 shrink-0 border-b border-[var(--color-sidebar-border)]"
         >
           <Link to="/dashboard" className="flex items-center gap-3">
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: 'var(--color-primary-500)' }}
+              className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary-500"
             >
               <Phone className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-semibold text-white">PhoneNow</span>
           </Link>
           <button
-            className="lg:hidden p-1.5 rounded-lg transition-colors"
-            style={{ color: 'var(--color-sidebar-text-muted)' }}
+            className="lg:hidden p-1.5 rounded-lg transition-colors text-[var(--color-sidebar-text-muted)] hover:text-white"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="w-5 h-5" />
@@ -98,13 +90,12 @@ export const MainLayout = () => {
           <div className="px-4 pt-4 pb-2">
             <div className="flex items-center gap-3">
               <div
-                className="w-11 h-11 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
-                style={{ backgroundColor: 'var(--color-primary-500)' }}
+                className="w-11 h-11 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 bg-primary-500"
               >
                 {getInitials(user?.name || '')}
               </div>
               <div className="min-w-0">
-                <p className="text-xs" style={{ color: 'var(--color-sidebar-text-muted)' }}>
+                <p className="text-xs text-[var(--color-sidebar-text-muted)]">
                   Welcome back,
                 </p>
                 <p className="text-white font-semibold text-sm truncate">
@@ -117,8 +108,7 @@ export const MainLayout = () => {
           {/* Balance Card */}
           <div className="px-4 py-3">
             <div
-              className="rounded-xl p-4"
-              style={{ backgroundColor: 'var(--color-primary-500)' }}
+              className="rounded-xl p-4 bg-primary-500"
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-white/80">Balance</span>
@@ -140,7 +130,7 @@ export const MainLayout = () => {
 
           {/* Navigation */}
           <nav className="px-3 py-2">
-            <p className="px-3 mb-2 text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-sidebar-text-muted)' }}>
+            <p className="px-3 mb-2 text-xs font-medium uppercase tracking-wider text-[var(--color-sidebar-text-muted)]">
               Menu
             </p>
             <div className="space-y-1">
@@ -186,13 +176,11 @@ export const MainLayout = () => {
 
         {/* Logout Button - Fixed Footer */}
         <div
-          className="px-3 py-3 shrink-0"
-          style={{ borderTop: '1px solid var(--color-sidebar-border)' }}
+          className="px-3 py-3 shrink-0 border-t border-[var(--color-sidebar-border)]"
         >
           <button
             onClick={handleLogout}
-            className="sidebar-nav-item w-full"
-            style={{ color: 'var(--color-error-400)' }}
+            className="sidebar-nav-item w-full text-error-400 hover:text-error-300"
           >
             <LogOut className="w-5 h-5" />
             <span>Log Out</span>
@@ -202,11 +190,10 @@ export const MainLayout = () => {
 
       {/* Main content - Offset by sidebar width on desktop */}
       <div
-        className="min-h-screen transition-all duration-300"
-        style={{ marginLeft: '0' }}
+        className="min-h-screen transition-all duration-300 lg:ml-[260px]"
       >
-        {/* Desktop offset */}
-        <div className="hidden lg:block" style={{ marginLeft: '260px' }}>
+        {/* Desktop offset handled by parent margin */}
+        <div className="hidden lg:block">
           {/* Top bar */}
           <header
             className="sticky top-0 z-30 h-16"

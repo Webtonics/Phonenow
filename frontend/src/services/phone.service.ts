@@ -92,6 +92,7 @@ export const phoneService = {
     return api.get<ApiResponse<Record<string, unknown>>>('/phone/prices', { params });
   },
 
+
   /**
    * Get operator prices for a specific service
    * Returns different pricing options based on operators
@@ -99,6 +100,11 @@ export const phoneService = {
   getOperatorPrices: async (country: string, product: string) => {
     return api.get<ApiResponse<OperatorPrice[]>>('/phone/operator-prices', {
       params: { country, product },
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
     });
   },
 

@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { phoneService, getErrorMessage } from '@/services';
 import { useAuth } from '@/stores/AuthContext';
+import { useNetwork } from '@/stores/NetworkContext';
 import { ServiceIcon } from '@/components/icons';
 
 // Debounce helper
@@ -137,6 +138,9 @@ export const PhoneNumbersPage = () => {
   const [loadingOperators, setLoadingOperators] = useState(false);
   const [purchasingOperator, setPurchasingOperator] = useState<string | null>(null);
   const [operatorError, setOperatorError] = useState<string | null>(null);
+
+  // Global network state
+  const { isOnline, checkConnection } = useNetwork();
 
   // Debounced country for API calls
   const debouncedCountry = useDebounce(selectedCountry, 300);
@@ -274,8 +278,11 @@ export const PhoneNumbersPage = () => {
     setOperatorPrices([]);
     setOperatorError(null);
 
+    // Double check connection status
+    const currentOnline = isOnline || await checkConnection();
+
     // Check if offline before making request
-    if (!navigator.onLine) {
+    if (!currentOnline) {
       setOperatorError('No internet connection. Please check your network and try again.');
       setLoadingOperators(false);
       return;
@@ -531,9 +538,8 @@ export const PhoneNumbersPage = () => {
                         setShowCountryDropdown(false);
                         setCountrySearch('');
                       }}
-                      className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-primary-50 transition-colors ${
-                        selectedCountry === key ? 'bg-primary-100' : ''
-                      }`}
+                      className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-primary-50 transition-colors ${selectedCountry === key ? 'bg-primary-100' : ''
+                        }`}
                     >
                       {getFlagUrl(key, country) ? (
                         <img
@@ -637,11 +643,10 @@ export const PhoneNumbersPage = () => {
               return (
                 <div
                   key={service.name}
-                  className={`group relative border-2 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 transition-all duration-200 ${
-                    isPopular
-                      ? 'border-amber-400 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 hover:shadow-2xl hover:scale-[1.02] sm:hover:scale-[1.03] hover:border-amber-500'
-                      : 'border-gray-200 bg-white hover:border-primary-400 hover:shadow-xl hover:scale-[1.01] sm:hover:scale-[1.02]'
-                  }`}
+                  className={`group relative border-2 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 transition-all duration-200 ${isPopular
+                    ? 'border-amber-400 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 hover:shadow-2xl hover:scale-[1.02] sm:hover:scale-[1.03] hover:border-amber-500'
+                    : 'border-gray-200 bg-white hover:border-primary-400 hover:shadow-xl hover:scale-[1.01] sm:hover:scale-[1.02]'
+                    }`}
                 >
                   {isPopular && (
                     <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 text-white text-xs font-bold px-2 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-xl flex items-center gap-1 animate-pulse">
@@ -656,13 +661,12 @@ export const PhoneNumbersPage = () => {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-sm sm:text-base text-gray-900 truncate">{service.display_name}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                          service.quantity > 100
-                            ? 'bg-green-100 text-green-700'
-                            : service.quantity > 10
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-red-100 text-red-700'
-                        }`}>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${service.quantity > 100
+                          ? 'bg-green-100 text-green-700'
+                          : service.quantity > 10
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
+                          }`}>
                           {service.quantity} available
                         </span>
                       </div>
@@ -673,13 +677,12 @@ export const PhoneNumbersPage = () => {
                     <button
                       onClick={() => handleBuyNumber(service)}
                       disabled={service.quantity === 0}
-                      className={`w-full px-5 sm:px-7 py-2.5 sm:py-3 rounded-xl font-bold transition-all shadow-md text-sm sm:text-base ${
-                        service.quantity === 0
-                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                          : isPopular
-                            ? 'bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 text-white hover:shadow-2xl hover:scale-105 sm:hover:scale-110 disabled:opacity-50'
-                            : 'bg-gradient-to-r from-primary-600 to-primary-500 text-white hover:from-primary-700 hover:to-primary-600 hover:shadow-2xl hover:scale-105 disabled:opacity-50'
-                      }`}
+                      className={`w-full px-5 sm:px-7 py-2.5 sm:py-3 rounded-xl font-bold transition-all shadow-md text-sm sm:text-base ${service.quantity === 0
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        : isPopular
+                          ? 'bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 text-white hover:shadow-2xl hover:scale-105 sm:hover:scale-110 disabled:opacity-50'
+                          : 'bg-gradient-to-r from-primary-600 to-primary-500 text-white hover:from-primary-700 hover:to-primary-600 hover:shadow-2xl hover:scale-105 disabled:opacity-50'
+                        }`}
                     >
                       {service.quantity === 0 ? 'Sold Out' : 'Buy Now'}
                     </button>
@@ -712,7 +715,7 @@ export const PhoneNumbersPage = () => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
                 <button
                   onClick={closePricingModal}
-                  className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-all hover:rotate-90 duration-300"
+                  className="absolute top-4 right-4 z-20 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-all hover:rotate-90 duration-300"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -781,13 +784,12 @@ export const PhoneNumbersPage = () => {
                           key={op.id}
                           onClick={() => handlePurchaseWithOperator(op.id)}
                           disabled={purchasingOperator !== null}
-                          className={`relative w-full text-left rounded-2xl p-4 transition-all duration-200 disabled:opacity-70 ${
-                            isCheapest
-                              ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-400 hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-100'
-                              : isPremium
-                                ? 'bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-400 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-100'
-                                : 'bg-gray-50 border-2 border-gray-200 hover:border-primary-300 hover:bg-white hover:shadow-md'
-                          }`}
+                          className={`relative w-full text-left rounded-2xl p-4 transition-all duration-200 disabled:opacity-70 ${isCheapest
+                            ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-400 hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-100'
+                            : isPremium
+                              ? 'bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-400 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-100'
+                              : 'bg-gray-50 border-2 border-gray-200 hover:border-primary-300 hover:bg-white hover:shadow-md'
+                            }`}
                         >
                           {/* Tag Badge */}
                           {isCheapest && (
@@ -804,31 +806,28 @@ export const PhoneNumbersPage = () => {
                           <div className="flex items-center justify-between gap-4">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-baseline gap-2 mb-2">
-                                <span className={`text-2xl sm:text-3xl font-bold ${
-                                  isCheapest ? 'text-emerald-600' : isPremium ? 'text-purple-600' : 'text-gray-900'
-                                }`}>
+                                <span className={`text-2xl sm:text-3xl font-bold ${isCheapest ? 'text-emerald-600' : isPremium ? 'text-purple-600' : 'text-gray-900'
+                                  }`}>
                                   ₦{op.price.toLocaleString()}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${
-                                  op.available > 50 ? 'bg-green-500' : op.available > 20 ? 'bg-yellow-500' : 'bg-orange-500'
-                                }`}></div>
+                                <div className={`w-2 h-2 rounded-full ${op.available > 50 ? 'bg-green-500' : op.available > 20 ? 'bg-yellow-500' : 'bg-orange-500'
+                                  }`}></div>
                                 <span className="text-sm text-gray-600">
                                   {op.available} numbers available
                                 </span>
                               </div>
                             </div>
 
-                            <div className={`shrink-0 px-5 py-3 rounded-xl font-bold text-sm transition-all ${
-                              purchasingOperator === op.id
-                                ? 'bg-gray-200 text-gray-500'
-                                : isCheapest
-                                  ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-200'
-                                  : isPremium
-                                    ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-lg shadow-purple-200'
-                                    : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-200'
-                            }`}>
+                            <div className={`shrink-0 px-5 py-3 rounded-xl font-bold text-sm transition-all ${purchasingOperator === op.id
+                              ? 'bg-gray-200 text-gray-500'
+                              : isCheapest
+                                ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-200'
+                                : isPremium
+                                  ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-lg shadow-purple-200'
+                                  : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-200'
+                              }`}>
                               {purchasingOperator === op.id ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
                               ) : (

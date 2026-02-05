@@ -14,3 +14,13 @@ Schedule::job(new ProcessExpiredOrdersJob())
     ->everyFiveMinutes()
     ->name('process-expired-orders')
     ->withoutOverlapping();
+
+Schedule::job(new \App\Jobs\FetchExchangeRatesJob())
+    ->hourly()
+    ->name('fetch-exchange-rates')
+    ->withoutOverlapping();
+
+Schedule::job(new \App\Jobs\SyncESimPackagesJob())
+    ->daily()
+    ->name('sync-esim-packages')
+    ->withoutOverlapping();

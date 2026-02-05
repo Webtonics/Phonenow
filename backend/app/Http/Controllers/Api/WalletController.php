@@ -95,7 +95,16 @@ class WalletController extends Controller
             'amount' => ['required', 'numeric', 'min:100', 'max:1000000'],
         ]);
 
-        // Check for pending transactions
+        // Automatically cancel any previous pending funding transactions
+        // This prevents the user from being blocked by abandoned attempts
+        Transaction::where('user_id', $user->id)
+            ->where('type', 'credit')
+            ->where('payment_method', 'flutterwave')
+            ->where('status', 'pending')
+            ->update(['status' => 'cancelled']);
+
+        /*
+        // Old blocking logic - removed to improve UX
         $hasPendingTransaction = Transaction::where('user_id', $user->id)
             ->where('type', 'credit')
             ->where('payment_method', 'flutterwave')
@@ -109,6 +118,7 @@ class WalletController extends Controller
                 'message' => 'You have a pending funding transaction. Please complete or wait for it to expire.',
             ], 400);
         }
+        */
 
         $result = $this->flutterwaveService->initializePayment(
             $user,

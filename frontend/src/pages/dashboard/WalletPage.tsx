@@ -56,8 +56,8 @@ export const WalletPage = () => {
 
   const handleFundWallet = async () => {
     const amountNum = parseInt(amount);
-    if (isNaN(amountNum) || amountNum < 100) {
-      toast.error('Minimum amount is ₦100');
+    if (isNaN(amountNum) || amountNum < 1000) {
+      toast.error('Minimum amount is ₦1,000');
       return;
     }
     if (amountNum > 1000000) {
@@ -192,9 +192,9 @@ export const WalletPage = () => {
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount (min ₦100)"
+              placeholder="Enter amount (min ₦1,000)"
               className="input text-base sm:text-lg"
-              min={100}
+              min={1000}
               max={1000000}
             />
           </div>
@@ -206,11 +206,10 @@ export const WalletPage = () => {
                 <button
                   key={amt}
                   onClick={() => setAmount(amt.toString())}
-                  className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border text-xs sm:text-sm font-medium transition-all ${
-                    amount === amt.toString()
+                  className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border text-xs sm:text-sm font-medium transition-all ${amount === amt.toString()
                       ? 'bg-primary-600 text-white border-primary-600 shadow-md scale-105'
                       : 'bg-white text-gray-700 border-gray-300 hover:border-primary-500 hover:scale-105'
-                  }`}
+                    }`}
                 >
                   ₦{amt.toLocaleString()}
                 </button>
@@ -253,11 +252,10 @@ export const WalletPage = () => {
               <button
                 key={tab.value}
                 onClick={() => setFilter(tab.value as any)}
-                className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                  filter === tab.value
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filter === tab.value
                     ? 'bg-primary-600 text-white shadow-md'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -283,9 +281,8 @@ export const WalletPage = () => {
                 className="p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-xl hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg flex-shrink-0 ${
-                    tx.type === 'credit' ? 'bg-green-100' : 'bg-red-100'
-                  }`}>
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${tx.type === 'credit' ? 'bg-green-100' : 'bg-red-100'
+                    }`}>
                     {tx.type === 'credit' ? (
                       <ArrowDownLeft className="w-4 h-4 text-green-600" />
                     ) : (
@@ -298,9 +295,8 @@ export const WalletPage = () => {
                       <p className="font-medium text-sm text-gray-900 line-clamp-1">
                         {tx.description || (tx.type === 'credit' ? 'Wallet Funded' : 'Purchase')}
                       </p>
-                      <p className={`text-base font-bold flex-shrink-0 ${
-                        tx.type === 'credit' ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <p className={`text-base font-bold flex-shrink-0 ${tx.type === 'credit' ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {tx.type === 'credit' ? '+' : '-'}₦{tx.amount.toLocaleString()}
                       </p>
                     </div>

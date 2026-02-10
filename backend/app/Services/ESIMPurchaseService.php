@@ -2,14 +2,18 @@
 
 namespace App\Services;
 
+use App\Mail\ESIMFulfilled;
+use App\Mail\ESIMRejected;
 use App\Models\ESIMPackage;
 use App\Models\ESIMProfile;
 use App\Models\ESIMSubscription;
+use App\Models\Setting;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\ReferralService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class ESIMPurchaseService
 {
@@ -49,6 +53,13 @@ class ESIMPurchaseService
             $user->deductBalance($package->selling_price);
             $user->refresh();
             $balanceAfter = $user->balance;
+
+            // Check fulfillment mode - manual means no Zendit API call
+            $fulfillmentMode = Setting::getValue('esim_fulfillment_mode', 'manual');
+
+            if ($fulfillmentMode === 'manual') {
+                return $this->createManualOrder($user, $package, $balanceBefore, $balanceAfter);
+            }
 
             // Generate unique transaction ID for Zendit
             $transactionId = $this->zenditService->generateTransactionId($user->id, 'ESIM');
@@ -504,23 +515,26 @@ class ESIMPurchaseService
             }
 
             // Only unused profiles can be cancelled
-            if (!in_array($profile->status, ['new', 'pending'])) {
+            if (!in_array($profile->status, ['new', 'pending', 'awaiting_fulfillment'])) {
                 return [
                     'success' => false,
                     'message' => 'Only unused eSIMs can be cancelled. This eSIM is: ' . $profile->status,
                 ];
             }
 
-            $transactionId = $profile->zendit_transaction_id ?? $profile->order_no;
+            $isManualOrder = empty($profile->zendit_transaction_id);
 
-            // Request refund from Zendit
-            $apiResult = $this->zenditService->requestRefund($transactionId);
+            // Only call Zendit refund API for auto-fulfilled orders
+            if (!$isManualOrder) {
+                $transactionId = $profile->zendit_transaction_id ?? $profile->order_no;
+                $apiResult = $this->zenditService->requestRefund($transactionId);
 
-            if (!$apiResult['success']) {
-                return [
-                    'success' => false,
-                    'message' => 'Cancellation failed: ' . ($apiResult['message'] ?? 'Unknown error'),
-                ];
+                if (!$apiResult['success']) {
+                    return [
+                        'success' => false,
+                        'message' => 'Cancellation failed: ' . ($apiResult['message'] ?? 'Unknown error'),
+                    ];
+                }
             }
 
             // Refund to wallet
@@ -641,6 +655,246 @@ class ESIMPurchaseService
             'message' => 'Usage updated',
             'data' => $usageData,
         ];
+    }
+
+    /**
+     * Create a manual fulfillment order (no Zendit API call)
+     */
+    protected function createManualOrder(User $user, ESIMPackage $package, float $balanceBefore, float $balanceAfter): array
+    {
+        $transactionId = 'PN-' . strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 10)) . '-' . $user->id;
+
+        // Create eSIM profile with awaiting_fulfillment status
+        $profile = ESIMProfile::create([
+            'user_id' => $user->id,
+            'order_no' => $transactionId,
+            'package_code' => $package->package_code,
+            'offer_id' => $package->offer_id ?? $package->package_code,
+            'country_code' => $package->country_code,
+            'country_name' => $package->country_name,
+            'data_amount' => $package->data_amount,
+            'duration_days' => $package->duration_days,
+            'voice_minutes' => $package->voice_minutes,
+            'voice_unlimited' => $package->voice_unlimited,
+            'sms_number' => $package->sms_number,
+            'sms_unlimited' => $package->sms_unlimited,
+            'wholesale_price' => $package->wholesale_price,
+            'cost_usd' => $package->price_usd,
+            'price_usd' => $package->price_usd,
+            'selling_price' => $package->selling_price,
+            'profit' => $package->selling_price - $package->wholesale_price,
+            'status' => 'awaiting_fulfillment',
+            'zendit_status' => 'AWAITING_FULFILLMENT',
+            'transaction_reference' => $transactionId,
+        ]);
+
+        // Record transaction
+        Transaction::create([
+            'user_id' => $user->id,
+            'type' => 'debit',
+            'amount' => $package->selling_price,
+            'balance_before' => $balanceBefore,
+            'balance_after' => $balanceAfter,
+            'status' => 'completed',
+            'reference' => $transactionId,
+            'description' => "eSIM Purchase: {$package->country_name} - {$package->formatted_data}",
+            'payment_method' => 'wallet',
+        ]);
+
+        // Increment package purchase count
+        $package->incrementPurchases();
+
+        // Process referral commission
+        try {
+            $referralService = new ReferralService();
+            $transaction = Transaction::where('reference', $transactionId)->first();
+            if ($transaction) {
+                $referralService->processCommission($transaction, $user->id);
+            }
+        } catch (\Exception $e) {
+            Log::error('Referral commission failed for manual eSIM', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        DB::commit();
+
+        Log::info('Manual eSIM Order Created', [
+            'user_id' => $user->id,
+            'profile_id' => $profile->id,
+            'transaction_id' => $transactionId,
+            'amount' => $package->selling_price,
+        ]);
+
+        return [
+            'success' => true,
+            'message' => 'eSIM purchased! Your order is being processed. You\'ll be notified when your eSIM is ready.',
+            'data' => [
+                'profile' => $this->formatProfileResponse($profile),
+                'new_balance' => $balanceAfter,
+                'is_pending' => true,
+            ],
+        ];
+    }
+
+    /**
+     * Admin fulfills a manual order with eSIM credentials
+     */
+    public function fulfillOrder(int $profileId, array $credentials, int $adminId): array
+    {
+        DB::beginTransaction();
+
+        try {
+            $profile = ESIMProfile::with('user')->find($profileId);
+
+            if (!$profile) {
+                return ['success' => false, 'message' => 'Order not found'];
+            }
+
+            if ($profile->status !== 'awaiting_fulfillment') {
+                return ['success' => false, 'message' => 'Order is not awaiting fulfillment. Current status: ' . $profile->status];
+            }
+
+            $smdpAddress = $credentials['smdp_address'];
+            $activationCode = $credentials['activation_code'];
+            $qrCodeData = "LPA:1\${$smdpAddress}\${$activationCode}";
+
+            // Auto-generate QR code URL from LPA string if not provided
+            $qrCodeUrl = $credentials['qr_code_url'] ?? null;
+            if (empty($qrCodeUrl)) {
+                $qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&format=png&data=' . urlencode($qrCodeData);
+            }
+
+            $profile->update([
+                'iccid' => $credentials['iccid'],
+                'smdp_address' => $smdpAddress,
+                'activation_code' => $activationCode,
+                'qr_code_data' => $qrCodeData,
+                'qr_code_url' => $qrCodeUrl,
+                'status' => 'new',
+                'zendit_status' => 'FULFILLED',
+                'notes' => "Fulfilled at " . now()->toDateTimeString(),
+            ]);
+
+            DB::commit();
+
+            // Send email notification
+            try {
+                Mail::to($profile->user->email)->send(new ESIMFulfilled($profile->fresh()));
+            } catch (\Exception $e) {
+                Log::error('Failed to send eSIM fulfilled email', [
+                    'profile_id' => $profile->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            Log::info('Manual eSIM Order Fulfilled', [
+                'profile_id' => $profile->id,
+                'admin_id' => $adminId,
+                'user_id' => $profile->user_id,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Order fulfilled successfully. User has been notified.',
+                'data' => $this->formatProfileResponse($profile->fresh()),
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Manual eSIM Fulfillment Failed', [
+                'profile_id' => $profileId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'message' => 'Fulfillment failed: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Admin rejects a manual order and refunds the user
+     */
+    public function rejectOrder(int $profileId, string $reason, int $adminId): array
+    {
+        DB::beginTransaction();
+
+        try {
+            $profile = ESIMProfile::with('user')->find($profileId);
+
+            if (!$profile) {
+                return ['success' => false, 'message' => 'Order not found'];
+            }
+
+            if ($profile->status !== 'awaiting_fulfillment') {
+                return ['success' => false, 'message' => 'Order is not awaiting fulfillment. Current status: ' . $profile->status];
+            }
+
+            $user = $profile->user;
+
+            // Refund to wallet
+            $balanceBefore = $user->balance;
+            $user->addBalance($profile->selling_price);
+            $user->refresh();
+            $balanceAfter = $user->balance;
+
+            // Update profile status
+            $profile->update([
+                'status' => 'cancelled',
+                'zendit_status' => 'REJECTED',
+                'notes' => "Rejected: {$reason}",
+            ]);
+
+            // Record refund transaction
+            Transaction::create([
+                'user_id' => $user->id,
+                'type' => 'credit',
+                'amount' => $profile->selling_price,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'status' => 'completed',
+                'reference' => Transaction::generateReference(),
+                'description' => "eSIM Order Refund: {$profile->country_name} - {$reason}",
+                'payment_method' => 'refund',
+            ]);
+
+            DB::commit();
+
+            // Send email notification
+            try {
+                Mail::to($user->email)->send(new ESIMRejected($profile->fresh(), $reason));
+            } catch (\Exception $e) {
+                Log::error('Failed to send eSIM rejected email', [
+                    'profile_id' => $profile->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            Log::info('Manual eSIM Order Rejected', [
+                'profile_id' => $profile->id,
+                'admin_id' => $adminId,
+                'user_id' => $user->id,
+                'reason' => $reason,
+                'refunded' => $profile->selling_price,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Order rejected and user refunded ₦' . number_format($profile->selling_price) . '.',
+                'data' => [
+                    'refunded_amount' => (float) $profile->selling_price,
+                ],
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Manual eSIM Rejection Failed', [
+                'profile_id' => $profileId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'message' => 'Rejection failed: ' . $e->getMessage()];
+        }
     }
 
     /**

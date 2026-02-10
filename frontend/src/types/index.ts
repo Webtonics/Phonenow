@@ -32,8 +32,8 @@ export interface Transaction {
   balance_after: number;
   description: string | null;
   reference: string | null;
-  status: 'pending' | 'completed' | 'failed';
-  payment_method: 'flutterwave' | 'admin_credit' | 'refund' | null;
+  status: 'pending' | 'completed' | 'failed' | 'expired' | 'cancelled';
+  payment_method: 'flutterwave' | 'cryptomus' | 'korapay' | 'admin_credit' | 'admin' | 'refund' | null;
   flutterwave_ref: string | null;
   created_at: string;
   updated_at: string;
@@ -210,6 +210,23 @@ export interface AdminUpdateServiceForm {
   retail_price?: number;
   reseller_price?: number;
   is_active?: boolean;
+}
+
+// Payment Gateway types
+export interface PaymentGateway {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  configured: boolean;
+  icon: string;
+}
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
 }
 
 // Re-export eSIM types

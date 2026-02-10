@@ -68,13 +68,8 @@ export const MainLayout = () => {
         <div
           className="flex items-center justify-between px-5 h-16 shrink-0 border-b border-[var(--color-sidebar-border)]"
         >
-          <Link to="/dashboard" className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary-500"
-            >
-              <Phone className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-semibold text-white">PhoneNow</span>
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <img src="/tonicstools_logo.png" alt="TonicsTools" className="h-9 brightness-0 invert" />
           </Link>
           <button
             className="lg:hidden p-1.5 rounded-lg transition-colors text-[var(--color-sidebar-text-muted)] hover:text-white"
@@ -262,12 +257,7 @@ export const MainLayout = () => {
               </button>
 
               {/* Logo */}
-              <span
-                className="text-lg font-semibold"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                PhoneNow
-              </span>
+              <img src="/tonicstools_logo.png" alt="TonicsTools" className="h-8" />
 
               {/* User avatar */}
               <div

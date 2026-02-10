@@ -138,8 +138,103 @@ export function ESIMPurchasePage() {
 
   // Purchase Success View
   if (purchasedProfile) {
+    const isAwaitingFulfillment = purchasedProfile.status === 'awaiting_fulfillment';
     const lpaString = qrCodeData?.lpa_string || purchasedProfile.lpa_string || purchasedProfile.qr_code_data;
     const qrCodeUrl = qrCodeData?.qr_code_url || purchasedProfile.qr_code_url;
+
+    // Awaiting Fulfillment View (Manual Mode)
+    if (isAwaitingFulfillment) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50/30 py-8">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Order Placed Header */}
+            <div className="bg-white rounded-2xl shadow-sm p-8 mb-6 text-center border border-amber-100">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-amber-100 rounded-full mb-6">
+                <Clock className="h-12 w-12 text-amber-600" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                Order Placed Successfully!
+              </h1>
+              <p className="text-lg text-gray-600 max-w-md mx-auto">
+                Your eSIM order for <span className="font-semibold">{purchasedProfile.country_name}</span> is being processed.
+                You'll receive an email notification when your eSIM is ready to install.
+              </p>
+            </div>
+
+            {/* Order Details */}
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Shield className="h-5 w-5 text-amber-500" />
+                Order Details
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-xs text-gray-500 mb-1">Order Number</p>
+                  <p className="font-semibold text-gray-900 text-sm">{purchasedProfile.order_no}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-xs text-gray-500 mb-1">Country</p>
+                  <p className="font-semibold text-gray-900 text-sm">
+                    {purchasedProfile.country_name}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-xs text-gray-500 mb-1">Data Allowance</p>
+                  <p className="font-semibold text-gray-900 text-sm">{purchasedProfile.data_formatted}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-xs text-gray-500 mb-1">Validity</p>
+                  <p className="font-semibold text-gray-900 text-sm">{purchasedProfile.duration_days} days</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-xs text-gray-500 mb-1">Amount Paid</p>
+                  <p className="font-semibold text-gray-900 text-sm">₦{purchasedProfile.selling_price.toLocaleString()}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-xs text-gray-500 mb-1">Status</p>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    Awaiting Fulfillment
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Processing Info */}
+            <div className="bg-amber-50 rounded-2xl p-6 mb-6 border border-amber-100">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-amber-900 mb-1">What happens next?</h4>
+                  <ul className="text-sm text-amber-800 space-y-1.5">
+                    <li>Your order is in our processing queue</li>
+                    <li>We'll prepare your eSIM credentials shortly</li>
+                    <li>You'll receive an email when your eSIM is ready</li>
+                    <li>You can also check your order status in "My eSIMs"</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => navigate('/esim/my-profiles')}
+                className="flex-1 flex items-center justify-center gap-2 bg-amber-500 text-white py-4 rounded-xl font-semibold hover:bg-amber-600 transition-colors"
+              >
+                View My eSIMs
+                <ExternalLink className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => navigate('/esim/packages')}
+                className="flex-1 flex items-center justify-center gap-2 bg-white text-gray-700 py-4 rounded-xl font-semibold border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                Browse More Packages
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-primary-50/30 py-8">

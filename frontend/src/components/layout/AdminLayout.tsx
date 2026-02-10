@@ -15,6 +15,7 @@ import {
   Search,
   Bell,
   Shield,
+  CreditCard,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -24,6 +25,7 @@ const adminNavigation = [
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
   { name: 'Services', href: '/admin/services', icon: Package },
   { name: 'eSIM Management', href: '/admin/esim', icon: Wifi },
+  { name: 'Payment Gateways', href: '/admin/payment-gateways', icon: CreditCard },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 

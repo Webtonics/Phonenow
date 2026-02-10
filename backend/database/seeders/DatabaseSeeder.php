@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
         // Create admin user
         User::create([
             'name' => 'Admin User',
-            'email' => 'admin@phonenow.com',
+            'email' => 'admin@tonicstools.com',
             'phone' => '+2348000000000',
             'password' => Hash::make('Admin@123'),
             'role' => 'admin',
@@ -33,7 +33,7 @@ class DatabaseSeeder extends Seeder
         // Create test user
         User::create([
             'name' => 'Test User',
-            'email' => 'test@phonenow.com',
+            'email' => 'test@tonicstools.com',
             'phone' => '+2348000000001',
             'password' => Hash::make('Test@123'),
             'role' => 'customer',

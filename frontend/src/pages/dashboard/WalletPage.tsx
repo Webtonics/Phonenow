@@ -10,11 +10,21 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  CreditCard
+  CreditCard,
+  Zap,
+  ShieldCheck,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { walletService, getErrorMessage } from '@/services';
-import type { Transaction } from '@/types';
+import type { Transaction, PaymentMethod } from '@/types';
+
+const gatewayDisplay: Record<string, { label: string; subtitle: string }> = {
+  flutterwave: { label: 'Express Pay', subtitle: 'Cards, Bank Transfer & USSD' },
+  korapay: { label: 'Secure Pay', subtitle: 'Cards, Bank Transfer & USSD' },
+  cryptomus: { label: 'Crypto Pay', subtitle: 'Bitcoin, USDT & more' },
+};
 
 export const WalletPage = () => {
   const { user, refreshUser } = useAuth();
@@ -24,6 +34,10 @@ export const WalletPage = () => {
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'credit' | 'debit'>('all');
+  const [paymentProvider, setPaymentProvider] = useState<'flutterwave' | 'cryptomus' | 'korapay'>('flutterwave');
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [loadingMethods, setLoadingMethods] = useState(true);
+  const [showBalance, setShowBalance] = useState(true);
 
   const fetchTransactions = async (showRefreshLoader = false) => {
     try {
@@ -50,9 +64,30 @@ export const WalletPage = () => {
     }
   };
 
+  const fetchPaymentMethods = async () => {
+    try {
+      setLoadingMethods(true);
+      const response = await walletService.getPaymentMethods();
+      if (response.success && response.data) {
+        setPaymentMethods(response.data);
+        if (response.data.length > 0) {
+          setPaymentProvider(response.data[0].id as 'flutterwave' | 'cryptomus' | 'korapay');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch payment methods:', error);
+    } finally {
+      setLoadingMethods(false);
+    }
+  };
+
   useEffect(() => {
     fetchTransactions();
   }, [filter]);
+
+  useEffect(() => {
+    fetchPaymentMethods();
+  }, []);
 
   const handleFundWallet = async () => {
     const amountNum = parseInt(amount);
@@ -67,7 +102,7 @@ export const WalletPage = () => {
 
     setIsLoading(true);
     try {
-      const response = await walletService.fundWallet(amountNum);
+      const response = await walletService.fundWallet(amountNum, paymentProvider);
       if (response.data?.link) {
         window.location.href = response.data.link;
       } else {
@@ -82,31 +117,45 @@ export const WalletPage = () => {
 
   const quickAmounts = [1000, 2000, 5000, 10000, 20000, 50000];
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'pending':
-        return <Clock className="w-4 h-4 text-yellow-600" />;
-      case 'failed':
-        return <XCircle className="w-4 h-4 text-red-600" />;
-      default:
-        return null;
-    }
-  };
-
   const getStatusBadge = (status: string) => {
-    const config: Record<string, { label: string; color: string }> = {
-      completed: { label: 'Completed', color: 'bg-green-100 text-green-700 border-green-200' },
-      pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-      failed: { label: 'Failed', color: 'bg-red-100 text-red-700 border-red-200' },
+    const config: Record<string, { label: string; icon: React.ReactNode; bg: string; text: string }> = {
+      completed: {
+        label: 'Completed',
+        icon: <CheckCircle className="w-3 h-3" />,
+        bg: 'bg-green-50',
+        text: 'text-green-700',
+      },
+      pending: {
+        label: 'Pending',
+        icon: <Clock className="w-3 h-3" />,
+        bg: 'bg-amber-50',
+        text: 'text-amber-700',
+      },
+      failed: {
+        label: 'Failed',
+        icon: <XCircle className="w-3 h-3" />,
+        bg: 'bg-red-50',
+        text: 'text-red-700',
+      },
+      expired: {
+        label: 'Expired',
+        icon: <XCircle className="w-3 h-3" />,
+        bg: 'bg-gray-50',
+        text: 'text-gray-500',
+      },
+      cancelled: {
+        label: 'Cancelled',
+        icon: <XCircle className="w-3 h-3" />,
+        bg: 'bg-gray-50',
+        text: 'text-gray-500',
+      },
     };
-    const statusConfig = config[status] || config.pending;
+    const s = config[status] || config.pending;
 
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${statusConfig.color}`}>
-        {getStatusIcon(status)}
-        {statusConfig.label}
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${s.bg} ${s.text}`}>
+        {s.icon}
+        {s.label}
       </span>
     );
   };
@@ -122,94 +171,184 @@ export const WalletPage = () => {
     }).format(date);
   };
 
-  const handleClearPending = async () => {
-    try {
-      const response = await walletService.clearPending();
-      if (response.success) {
-        toast.success(response.message);
-        fetchTransactions(true);
-      }
-    } catch (error) {
-      toast.error(getErrorMessage(error));
+  const getGatewayIcon = (methodId: string, isSelected: boolean) => {
+    const cls = `w-4 h-4 ${isSelected ? 'text-primary-600' : 'text-gray-400'}`;
+    switch (methodId) {
+      case 'flutterwave':
+        return <Zap className={cls} />;
+      case 'korapay':
+        return <ShieldCheck className={cls} />;
+      case 'cryptomus':
+        return <span className={`text-sm leading-none ${isSelected ? 'text-primary-600' : 'text-gray-400'}`}>&#8383;</span>;
+      default:
+        return <CreditCard className={cls} />;
     }
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Wallet</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleClearPending}
-            className="btn-secondary text-xs px-2 py-1"
-            title="Clear pending transactions"
-          >
-            Clear Pending
-          </button>
-          <button
-            onClick={() => fetchTransactions(true)}
-            disabled={refreshing}
-            className="btn-secondary flex items-center gap-2 text-sm px-3 py-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden xs:inline">Refresh</span>
-          </button>
+    <div className="space-y-5 sm:space-y-6 px-1 sm:px-0 max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Wallet</h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Manage your funds & transactions</p>
         </div>
+        <button
+          onClick={() => fetchTransactions(true)}
+          disabled={refreshing}
+          className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 text-gray-600 ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* Balance Card */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-primary-600 via-primary-500 to-primary-700 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-white shadow-2xl">
-        <div className="absolute top-0 right-0 -mt-4 -mr-4 h-32 w-32 rounded-full bg-white opacity-10 blur-2xl"></div>
-        <div className="absolute bottom-0 left-0 -mb-8 -ml-8 h-32 w-32 rounded-full bg-white opacity-10 blur-2xl"></div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary-700 via-primary-600 to-primary-500 rounded-2xl p-5 sm:p-7 text-white shadow-lg">
+        <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-14 -left-14 w-44 h-44 rounded-full bg-white/5 blur-3xl" />
 
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 sm:p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-              <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-white/15 rounded-lg backdrop-blur-sm">
+                <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+              <span className="text-sm font-medium text-white/75">Available Balance</span>
             </div>
-            <span className="text-sm sm:text-base opacity-90">Available Balance</span>
+            <button
+              onClick={() => setShowBalance(!showBalance)}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+              aria-label={showBalance ? 'Hide balance' : 'Show balance'}
+            >
+              {showBalance ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            </button>
           </div>
-          <p className="text-3xl sm:text-4xl md:text-5xl font-bold mb-1">
-            ₦{user?.balance?.toLocaleString() || '0.00'}
+
+          <p className="text-3xl sm:text-4xl font-bold tracking-tight">
+            {showBalance ? `₦${user?.balance?.toLocaleString() || '0.00'}` : '₦ • • • • •'}
           </p>
-          <p className="text-xs sm:text-sm text-primary-100">NGN - Nigerian Naira</p>
+          <p className="text-[11px] sm:text-xs text-white/50 mt-1.5 font-medium">Nigerian Naira (NGN)</p>
         </div>
       </div>
 
-      {/* Fund Wallet */}
-      <div className="card">
-        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <div className="p-2 bg-primary-100 rounded-lg">
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600" />
+      {/* Fund Wallet Card */}
+      <div className="card !p-5 sm:!p-6">
+        <div className="flex items-center gap-2.5 mb-5">
+          <div className="p-2 bg-primary-50 rounded-lg">
+            <Plus className="w-4 h-4 text-primary-600" />
           </div>
-          Add Funds
-        </h2>
-
-        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Enter Amount (₦)</label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount (min ₦1,000)"
-              className="input text-base sm:text-lg"
-              min={1000}
-              max={1000000}
-            />
+            <h2 className="text-base font-semibold text-gray-900">Add Funds</h2>
+            <p className="text-xs text-gray-400">Choose payment method and enter amount</p>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          {/* Payment Methods */}
+          <div>
+            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5 block">
+              Payment Method
+            </label>
+            {loadingMethods ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+              </div>
+            ) : paymentMethods.length === 0 ? (
+              <div className="text-center py-8 text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl">
+                No payment methods available
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {paymentMethods.map((method) => {
+                  const display = gatewayDisplay[method.id];
+                  const isSelected = paymentProvider === method.id;
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => setPaymentProvider(method.id as 'flutterwave' | 'cryptomus' | 'korapay')}
+                      className={`w-full flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl border-2 transition-all text-left ${
+                        isSelected
+                          ? 'border-primary-500 bg-primary-50/50'
+                          : 'border-gray-150 bg-white hover:border-gray-300'
+                      }`}
+                    >
+                      {/* Radio dot */}
+                      <div
+                        className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isSelected ? 'border-primary-500' : 'border-gray-300'
+                        }`}
+                      >
+                        {isSelected && <div className="w-2 h-2 rounded-full bg-primary-500" />}
+                      </div>
+
+                      {/* Icon */}
+                      <div
+                        className={`p-2 rounded-lg flex-shrink-0 transition-colors ${
+                          isSelected ? 'bg-primary-100' : 'bg-gray-100'
+                        }`}
+                      >
+                        {getGatewayIcon(method.id, isSelected)}
+                      </div>
+
+                      {/* Text */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${isSelected ? 'text-primary-700' : 'text-gray-800'}`}>
+                          {display?.label || method.name}
+                        </p>
+                        <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">
+                          {display?.subtitle || method.description}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
+          {/* Divider */}
+          <div className="border-t border-gray-100" />
+
+          {/* Amount Input */}
           <div>
-            <p className="text-xs sm:text-sm text-gray-500 mb-2">Quick amounts:</p>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 block">
+              Enter Amount
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-gray-300 pointer-events-none select-none">
+                ₦
+              </span>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+                className="input !text-2xl sm:!text-3xl font-bold !pl-10 !pr-4 !py-4 sm:!py-5 rounded-xl bg-gray-50 border-gray-200 focus:bg-white placeholder:text-gray-200"
+                min={1000}
+                max={1000000}
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              Min ₦1,000 &middot; Max ₦1,000,000
+            </p>
+          </div>
+
+          {/* Quick Amounts */}
+          <div>
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">
+              Quick Select
+            </p>
+            <div className="flex flex-wrap gap-2">
               {quickAmounts.map((amt) => (
                 <button
                   key={amt}
                   onClick={() => setAmount(amt.toString())}
-                  className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border text-xs sm:text-sm font-medium transition-all ${amount === amt.toString()
-                      ? 'bg-primary-600 text-white border-primary-600 shadow-md scale-105'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-primary-500 hover:scale-105'
-                    }`}
+                  className={`px-3.5 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
+                    amount === amt.toString()
+                      ? 'bg-primary-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
                 >
                   ₦{amt.toLocaleString()}
                 </button>
@@ -217,45 +356,44 @@ export const WalletPage = () => {
             </div>
           </div>
 
+          {/* Fund Button */}
           <button
             onClick={handleFundWallet}
-            disabled={isLoading || !amount}
-            className="btn-primary w-full py-3 sm:py-4 text-sm sm:text-base flex items-center justify-center gap-2"
+            disabled={isLoading || !amount || paymentMethods.length === 0}
+            className="btn-primary w-full !py-3.5 sm:!py-4 text-sm font-semibold !rounded-xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-shadow"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
-                <CreditCard className="w-5 h-5" />
-                Fund Wallet with Flutterwave
+                <CreditCard className="w-4 h-4" />
+                Fund Wallet{amount ? ` — ₦${parseInt(amount).toLocaleString()}` : ''}
               </>
             )}
           </button>
-          <p className="text-xs text-gray-500 text-center">Secure payment powered by Flutterwave</p>
         </div>
       </div>
 
       {/* Transaction History */}
-      <div className="card">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-            Transaction History
-          </h2>
+      <div className="card !p-5 sm:!p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
+          <h2 className="text-base font-semibold text-gray-900">Transactions</h2>
 
-          {/* Filter Tabs */}
-          <div className="flex gap-2 w-full sm:w-auto">
+          {/* Segmented filter */}
+          <div className="flex gap-0.5 p-1 bg-gray-100 rounded-lg w-full sm:w-auto">
             {[
               { value: 'all', label: 'All' },
-              { value: 'credit', label: 'Credit' },
-              { value: 'debit', label: 'Debit' },
+              { value: 'credit', label: 'Money In' },
+              { value: 'debit', label: 'Money Out' },
             ].map((tab) => (
               <button
                 key={tab.value}
                 onClick={() => setFilter(tab.value as any)}
-                className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filter === tab.value
-                    ? 'bg-primary-600 text-white shadow-md'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
+                className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  filter === tab.value
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
               >
                 {tab.label}
               </button>
@@ -264,58 +402,66 @@ export const WalletPage = () => {
         </div>
 
         {loadingTransactions ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 className="w-7 h-7 animate-spin text-primary-400" />
+            <p className="text-xs text-gray-400">Loading transactions...</p>
           </div>
         ) : transactions.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <Wallet className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 text-gray-300" />
-            <p className="text-sm sm:text-base font-medium">No transactions yet</p>
-            <p className="text-xs sm:text-sm mt-1">Your transactions will appear here</p>
+          <div className="text-center py-16">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center">
+              <Wallet className="w-7 h-7 text-gray-300" />
+            </div>
+            <p className="text-sm font-medium text-gray-500">No transactions yet</p>
+            <p className="text-xs text-gray-400 mt-1">Your transaction history will appear here</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {transactions.map((tx) => (
               <div
                 key={tx.id}
-                className="p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-xl hover:shadow-md transition-shadow"
+                className="flex items-center gap-3 p-3 sm:p-3.5 rounded-xl hover:bg-gray-50 transition-colors group"
               >
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg flex-shrink-0 ${tx.type === 'credit' ? 'bg-green-100' : 'bg-red-100'
-                    }`}>
-                    {tx.type === 'credit' ? (
-                      <ArrowDownLeft className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <ArrowUpRight className="w-4 h-4 text-red-600" />
-                    )}
-                  </div>
+                {/* Icon */}
+                <div
+                  className={`p-2 rounded-xl flex-shrink-0 ${
+                    tx.type === 'credit' ? 'bg-green-50 group-hover:bg-green-100' : 'bg-red-50 group-hover:bg-red-100'
+                  } transition-colors`}
+                >
+                  {tx.type === 'credit' ? (
+                    <ArrowDownLeft className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <ArrowUpRight className="w-4 h-4 text-red-500" />
+                  )}
+                </div>
 
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-sm text-gray-900 line-clamp-1">
-                        {tx.description || (tx.type === 'credit' ? 'Wallet Funded' : 'Purchase')}
-                      </p>
-                      <p className={`text-base font-bold flex-shrink-0 ${tx.type === 'credit' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                        {tx.type === 'credit' ? '+' : '-'}₦{tx.amount.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 mt-1.5">
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
-                        <span className="flex-shrink-0">{formatDate(tx.created_at)}</span>
-                        {tx.payment_method && (
-                          <>
-                            <span className="text-gray-300">•</span>
-                            <span className="capitalize flex-shrink-0">{tx.payment_method}</span>
-                          </>
-                        )}
-                      </div>
-                      {getStatusBadge(tx.status)}
-                    </div>
-                    {tx.reference && (
-                      <p className="text-xs text-gray-400 font-mono mt-1.5 truncate max-w-[200px] sm:max-w-none">{tx.reference}</p>
+                {/* Details */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {tx.description || (tx.type === 'credit' ? 'Wallet Funded' : 'Purchase')}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[11px] text-gray-400">{formatDate(tx.created_at)}</span>
+                    {tx.payment_method && (
+                      <>
+                        <span className="text-gray-200">&middot;</span>
+                        <span className="text-[11px] text-gray-400 capitalize">
+                          {gatewayDisplay[tx.payment_method]?.label || tx.payment_method}
+                        </span>
+                      </>
                     )}
                   </div>
+                </div>
+
+                {/* Amount + Status */}
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <p
+                    className={`text-sm font-bold ${
+                      tx.type === 'credit' ? 'text-green-600' : 'text-red-500'
+                    }`}
+                  >
+                    {tx.type === 'credit' ? '+' : '-'}₦{tx.amount.toLocaleString()}
+                  </p>
+                  {getStatusBadge(tx.status)}
                 </div>
               </div>
             ))}

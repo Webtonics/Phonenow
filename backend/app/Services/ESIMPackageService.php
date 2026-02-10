@@ -153,7 +153,11 @@ class ESIMPackageService
     protected function syncSingleOffer(array $offer): void
     {
         $offerId = $offer['offerId'];
-        $priceUsd = (float) ($offer['price'] ?? 0);
+
+        // Zendit returns price/cost as objects: {"currency":"USD","currencyDivisor":100,"fixed":15850}
+        // The actual USD price = fixed / currencyDivisor (e.g. 15850 / 100 = $158.50)
+        // Use 'cost' (wholesale) if available, otherwise fall back to 'price' (suggested retail)
+        $priceUsd = $this->parseZenditPrice($offer['cost'] ?? $offer['price'] ?? 0);
 
         // Debug: Log first few offers to see actual API response structure
         static $loggedCount = 0;
@@ -161,6 +165,7 @@ class ESIMPackageService
             Log::info('Zendit offer sample', [
                 'offerId' => $offerId,
                 'raw_price' => $offer['price'] ?? 'NOT_SET',
+                'raw_cost' => $offer['cost'] ?? 'NOT_SET',
                 'parsed_price_usd' => $priceUsd,
                 'country' => $offer['country'] ?? 'N/A',
                 'dataGB' => $offer['dataGB'] ?? 'N/A',
@@ -223,7 +228,7 @@ class ESIMPackageService
 
                 // Pricing
                 'price_usd' => $priceUsd,
-                'price_currency' => $offer['priceCurrency'] ?? 'USD',
+                'price_currency' => is_array($offer['price'] ?? null) ? ($offer['price']['currency'] ?? 'USD') : 'USD',
                 'wholesale_price' => $pricing['wholesale_ngn'],
                 'selling_price' => $pricing['selling_ngn'],
                 'markup_percentage' => $pricing['markup_percentage'],
@@ -239,6 +244,34 @@ class ESIMPackageService
                 'last_synced_at' => now(),
             ]
         );
+    }
+
+    /**
+     * Parse Zendit price object into a USD float
+     *
+     * Zendit returns prices as: {"currency":"USD","currencyDivisor":100,"fixed":15850}
+     * Actual price = fixed / currencyDivisor (e.g. 15850 / 100 = $158.50)
+     */
+    protected function parseZenditPrice(mixed $price): float
+    {
+        // If it's already a numeric value (shouldn't happen but handle gracefully)
+        if (is_numeric($price)) {
+            return (float) $price;
+        }
+
+        // If it's an array/object with fixed and currencyDivisor
+        if (is_array($price)) {
+            $fixed = $price['fixed'] ?? 0;
+            $divisor = $price['currencyDivisor'] ?? 100;
+
+            if ($divisor <= 0) {
+                $divisor = 100;
+            }
+
+            return round((float) $fixed / (float) $divisor, 4);
+        }
+
+        return 0.0;
     }
 
     /**

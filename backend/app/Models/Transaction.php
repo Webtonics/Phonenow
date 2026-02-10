@@ -21,6 +21,8 @@ class Transaction extends Model
         'status',
         'payment_method',
         'flutterwave_ref',
+        'cryptomus_ref',
+        'korapay_ref',
     ];
 
     protected function casts(): array
@@ -59,6 +61,6 @@ class Transaction extends Model
 
     public static function generateReference(): string
     {
-        return 'PHONENOW_' . time() . '_' . strtoupper(bin2hex(random_bytes(4)));
+        return 'TONICSTOOLS_' . time() . '_' . strtoupper(bin2hex(random_bytes(4)));
     }
 }

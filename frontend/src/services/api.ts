@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { ApiResponse } from '@/types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://backend.phonenow.test/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.tonicstools.com/api';
 
 // Create axios instance
 const api: AxiosInstance = axios.create({

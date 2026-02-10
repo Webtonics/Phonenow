@@ -41,6 +41,19 @@ return [
         'webhook_secret' => env('FLUTTERWAVE_WEBHOOK_SECRET'),
     ],
 
+    'cryptomus' => [
+        'api_key' => env('CRYPTOMUS_API_KEY'),
+        'merchant_id' => env('CRYPTOMUS_MERCHANT_ID'),
+        'base_url' => env('CRYPTOMUS_BASE_URL', 'https://api.cryptomus.com/v1'),
+    ],
+
+    'korapay' => [
+        'public_key' => env('KORAPAY_PUBLIC_KEY'),
+        'secret_key' => env('KORAPAY_SECRET_KEY'),
+        'encryption_key' => env('KORAPAY_ENCRYPTION_KEY'),
+        'base_url' => env('KORAPAY_BASE_URL', 'https://api.korapay.com/merchant/api/v1'),
+    ],
+
     'fivesim' => [
         'api_key' => env('FIVESIM_API_KEY'),
         'base_url' => env('FIVESIM_BASE_URL', 'https://5sim.net/v1'),

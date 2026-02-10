@@ -10,10 +10,14 @@ use App\Models\Setting;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\ExchangeRateService;
+use App\Services\FlutterwaveService;
+use App\Services\CryptomusService;
+use App\Services\KorapayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class AdminController extends Controller
 {
@@ -684,5 +688,160 @@ class AdminController extends Controller
             'message' => 'Pricing settings updated successfully.',
             'data' => $validated,
         ]);
+    }
+
+    /**
+     * Get payment gateway settings
+     */
+    public function getPaymentGateways(): JsonResponse
+    {
+        $flutterwaveService = app(FlutterwaveService::class);
+        $cryptomusService = app(CryptomusService::class);
+        $korapayService = app(KorapayService::class);
+
+        $gateways = [
+            [
+                'id' => 'flutterwave',
+                'name' => 'Flutterwave',
+                'description' => 'Cards, Bank Transfer, Mobile Money',
+                'enabled' => (bool) Setting::getValue('gateway_flutterwave_enabled', true),
+                'configured' => $flutterwaveService->isConfigured(),
+                'icon' => 'credit-card',
+            ],
+            [
+                'id' => 'cryptomus',
+                'name' => 'Cryptomus',
+                'description' => 'Cryptocurrency (BTC, USDT, ETH)',
+                'enabled' => (bool) Setting::getValue('gateway_cryptomus_enabled', true),
+                'configured' => $cryptomusService->isConfigured(),
+                'icon' => 'bitcoin',
+            ],
+            [
+                'id' => 'korapay',
+                'name' => 'Korapay',
+                'description' => 'Bank Transfer, USSD, Mobile Money',
+                'enabled' => (bool) Setting::getValue('gateway_korapay_enabled', true),
+                'configured' => $korapayService->isConfigured(),
+                'icon' => 'globe',
+            ],
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $gateways,
+        ]);
+    }
+
+    /**
+     * Update payment gateway status
+     */
+    public function updatePaymentGateway(Request $request, string $gatewayId): JsonResponse
+    {
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        $allowedGateways = ['flutterwave', 'cryptomus', 'korapay'];
+
+        if (!in_array($gatewayId, $allowedGateways)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid payment gateway.',
+            ], 400);
+        }
+
+        $settingKey = "gateway_{$gatewayId}_enabled";
+
+        Setting::setValue(
+            $settingKey,
+            $validated['enabled'] ? 'true' : 'false',
+            'boolean',
+            'payment_gateway'
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment gateway updated successfully.',
+            'data' => [
+                'gateway' => $gatewayId,
+                'enabled' => $validated['enabled'],
+            ],
+        ]);
+    }
+
+    /**
+     * Test payment gateway connection
+     */
+    public function testPaymentGateway(string $gatewayId): JsonResponse
+    {
+        $allowedGateways = ['flutterwave', 'cryptomus', 'korapay'];
+
+        if (!in_array($gatewayId, $allowedGateways)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid payment gateway.',
+            ], 400);
+        }
+
+        try {
+            $result = match ($gatewayId) {
+                'flutterwave' => $this->testFlutterwaveConnection(),
+                'cryptomus' => $this->testCryptomusConnection(),
+                'korapay' => $this->testKorapayConnection(),
+            };
+
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Connection test failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function testFlutterwaveConnection(): array
+    {
+        $service = app(FlutterwaveService::class);
+        if (!$service->isConfigured()) {
+            return ['success' => false, 'message' => 'API keys not configured in .env'];
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('services.flutterwave.secret_key'),
+        ])->get('https://api.flutterwave.com/v3/balances');
+
+        if ($response->successful()) {
+            return ['success' => true, 'message' => 'Connection successful'];
+        }
+
+        return ['success' => false, 'message' => 'Connection failed: ' . ($response->json('message') ?? 'Unknown error')];
+    }
+
+    private function testCryptomusConnection(): array
+    {
+        $service = app(CryptomusService::class);
+        if (!$service->isConfigured()) {
+            return ['success' => false, 'message' => 'API keys not configured in .env'];
+        }
+
+        return ['success' => true, 'message' => 'API keys configured'];
+    }
+
+    private function testKorapayConnection(): array
+    {
+        $service = app(KorapayService::class);
+        if (!$service->isConfigured()) {
+            return ['success' => false, 'message' => 'API keys not configured in .env'];
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . config('services.korapay.secret_key'),
+        ])->get('https://api.korapay.com/merchant/api/v1/misc/banks');
+
+        if ($response->successful()) {
+            return ['success' => true, 'message' => 'Connection successful'];
+        }
+
+        return ['success' => false, 'message' => 'Connection failed'];
     }
 }

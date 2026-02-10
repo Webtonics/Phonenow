@@ -40,6 +40,7 @@ import { AdminOrdersPage } from '@/pages/admin/AdminOrdersPage';
 import { AdminServicesPage } from '@/pages/admin/AdminServicesPage';
 import { AdminSettingsPage } from '@/pages/admin/AdminSettingsPage';
 import { AdminESIMPage } from '@/pages/admin/AdminESIMPage';
+import { AdminPaymentGatewaysPage } from '@/pages/admin/AdminPaymentGatewaysPage';
 
 // Loading component
 const LoadingScreen = () => (
@@ -179,6 +180,7 @@ function AppRoutes() {
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="/admin/services" element={<AdminServicesPage />} />
         <Route path="/admin/esim" element={<AdminESIMPage />} />
+        <Route path="/admin/payment-gateways" element={<AdminPaymentGatewaysPage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
       </Route>
 

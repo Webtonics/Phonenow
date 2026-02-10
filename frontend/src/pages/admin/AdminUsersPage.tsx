@@ -30,7 +30,7 @@ export const AdminUsersPage = () => {
         page,
         per_page: 10,
         search: search || undefined,
-        role: roleFilter as 'customer' | 'reseller' | 'admin' | undefined,
+        role: (roleFilter || undefined) as 'customer' | 'reseller' | 'admin' | undefined,
       });
       if (response.success) {
         setUsers(response.data);

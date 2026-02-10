@@ -86,7 +86,7 @@ export interface ESIMProfile {
   selling_price: number;
 
   // Status
-  status: 'new' | 'active' | 'expired' | 'cancelled' | 'pending' | 'processing' | 'failed';
+  status: 'new' | 'active' | 'expired' | 'cancelled' | 'pending' | 'processing' | 'failed' | 'awaiting_fulfillment';
   zendit_status: string | null;
   is_active: boolean;
   can_topup: boolean;
@@ -237,6 +237,7 @@ export const getStatusColor = (status: ESIMStatusType): string => {
     expired: 'bg-gray-100 text-gray-800',
     cancelled: 'bg-red-100 text-red-800',
     failed: 'bg-red-100 text-red-800',
+    awaiting_fulfillment: 'bg-amber-100 text-amber-800',
   };
   return colors[status] || 'bg-gray-100 text-gray-800';
 };
@@ -250,6 +251,7 @@ export const getStatusLabel = (status: ESIMStatusType): string => {
     expired: 'Expired',
     cancelled: 'Cancelled',
     failed: 'Failed',
+    awaiting_fulfillment: 'Awaiting Fulfillment',
   };
   return labels[status] || status;
 };

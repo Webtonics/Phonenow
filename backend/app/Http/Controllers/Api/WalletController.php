@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Setting;
 use App\Models\Transaction;
 use App\Services\FlutterwaveService;
+use App\Services\CryptomusService;
+use App\Services\KorapayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +16,9 @@ use Illuminate\Support\Facades\Log;
 class WalletController extends Controller
 {
     public function __construct(
-        protected FlutterwaveService $flutterwaveService
+        protected FlutterwaveService $flutterwaveService,
+        protected CryptomusService $cryptomusService,
+        protected KorapayService $korapayService
     ) {}
 
     /**
@@ -91,39 +96,37 @@ class WalletController extends Controller
     {
         $user = $request->user();
 
+        $enabledGateways = $this->getEnabledGateways();
+
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:100', 'max:1000000'],
+            'payment_provider' => [
+                'required',
+                'string',
+                function ($attribute, $value, $fail) use ($enabledGateways) {
+                    if (!in_array($value, $enabledGateways)) {
+                        $fail('The selected payment provider is not available.');
+                    }
+                },
+            ],
         ]);
 
-        // Automatically cancel any previous pending funding transactions
+        $provider = $validated['payment_provider'];
+
+        // Automatically expire any previous pending funding transactions for this provider
         // This prevents the user from being blocked by abandoned attempts
         Transaction::where('user_id', $user->id)
             ->where('type', 'credit')
-            ->where('payment_method', 'flutterwave')
+            ->where('payment_method', $provider)
             ->where('status', 'pending')
-            ->update(['status' => 'cancelled']);
+            ->update(['status' => 'expired']);
 
-        /*
-        // Old blocking logic - removed to improve UX
-        $hasPendingTransaction = Transaction::where('user_id', $user->id)
-            ->where('type', 'credit')
-            ->where('payment_method', 'flutterwave')
-            ->where('status', 'pending')
-            ->where('created_at', '>', now()->subHours(1))
-            ->exists();
-
-        if ($hasPendingTransaction) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You have a pending funding transaction. Please complete or wait for it to expire.',
-            ], 400);
-        }
-        */
-
-        $result = $this->flutterwaveService->initializePayment(
-            $user,
-            $validated['amount']
-        );
+        // Route to appropriate payment provider
+        $result = match ($provider) {
+            'flutterwave' => $this->flutterwaveService->initializePayment($user, $validated['amount']),
+            'cryptomus' => $this->cryptomusService->initializePayment($user, $validated['amount']),
+            'korapay' => $this->korapayService->initializePayment($user, $validated['amount']),
+        };
 
         if ($result['success']) {
             return response()->json([
@@ -176,10 +179,17 @@ class WalletController extends Controller
             ]);
         }
 
-        // Verify with Flutterwave
-        $result = isset($validated['transaction_id'])
-            ? $this->flutterwaveService->verifyPayment($validated['transaction_id'])
-            : $this->flutterwaveService->verifyPaymentByReference($validated['reference']);
+        // Verify with appropriate payment provider
+        $provider = $transaction->payment_method;
+
+        $result = match ($provider) {
+            'flutterwave' => isset($validated['transaction_id'])
+                ? $this->flutterwaveService->verifyPayment($validated['transaction_id'])
+                : $this->flutterwaveService->verifyPaymentByReference($validated['reference']),
+            'cryptomus' => $this->cryptomusService->verifyPayment($transaction->cryptomus_ref),
+            'korapay' => $this->korapayService->verifyPayment($transaction->korapay_ref),
+            default => ['success' => false, 'message' => 'Unsupported payment provider'],
+        };
 
         if (!$result['success']) {
             return response()->json([
@@ -190,11 +200,19 @@ class WalletController extends Controller
 
         $paymentData = $result['data'];
 
-        // Verify the payment details match
-        if ($paymentData['tx_ref'] !== $transaction->reference) {
+        // Verify the payment details match (provider-specific logic)
+        $referenceField = match ($provider) {
+            'flutterwave' => 'tx_ref',
+            'cryptomus' => 'order_id',
+            'korapay' => 'reference',
+            default => null,
+        };
+
+        if ($referenceField && isset($paymentData[$referenceField]) && $paymentData[$referenceField] !== $transaction->reference) {
             Log::warning('Payment reference mismatch', [
+                'provider' => $provider,
                 'expected' => $transaction->reference,
-                'received' => $paymentData['tx_ref'],
+                'received' => $paymentData[$referenceField],
             ]);
 
             return response()->json([
@@ -203,12 +221,35 @@ class WalletController extends Controller
             ], 400);
         }
 
-        // Check payment status
-        if ($paymentData['status'] !== 'successful') {
-            $transaction->update([
-                'status' => 'failed',
-                'flutterwave_ref' => $paymentData['flw_ref'] ?? null,
-            ]);
+        // Check payment status (provider-specific)
+        $isSuccessful = match ($provider) {
+            'flutterwave' => $paymentData['status'] === 'successful',
+            'cryptomus' => in_array($paymentData['status'], ['paid', 'paid_over']),
+            'korapay' => $paymentData['status'] === 'success',
+            default => false,
+        };
+
+        if (!$isSuccessful) {
+            $providerRefField = match ($provider) {
+                'flutterwave' => 'flutterwave_ref',
+                'cryptomus' => 'cryptomus_ref',
+                'korapay' => 'korapay_ref',
+                default => null,
+            };
+
+            $providerRefValue = match ($provider) {
+                'flutterwave' => $paymentData['flw_ref'] ?? null,
+                'cryptomus' => $paymentData['uuid'] ?? null,
+                'korapay' => $paymentData['reference'] ?? null,
+                default => null,
+            };
+
+            if ($providerRefField) {
+                $transaction->update([
+                    'status' => 'failed',
+                    $providerRefField => $providerRefValue,
+                ]);
+            }
 
             return response()->json([
                 'success' => false,
@@ -219,11 +260,20 @@ class WalletController extends Controller
             ], 400);
         }
 
-        // Verify amount matches
-        if ((float) $paymentData['amount'] !== (float) $transaction->amount) {
+        // Verify amount matches (handle different amount fields)
+        $paidAmount = (float) $paymentData['amount'];
+        $expectedAmount = (float) $transaction->amount;
+
+        // For Cryptomus, convert USD back to NGN for comparison
+        if ($provider === 'cryptomus') {
+            $paidAmount = $paidAmount * 1600; // Convert USD to NGN
+        }
+
+        if (abs($paidAmount - $expectedAmount) > 0.01) {
             Log::warning('Payment amount mismatch', [
-                'expected' => $transaction->amount,
-                'received' => $paymentData['amount'],
+                'provider' => $provider,
+                'expected' => $expectedAmount,
+                'received' => $paidAmount,
             ]);
 
             return response()->json([
@@ -242,13 +292,33 @@ class WalletController extends Controller
             $user->refresh();
             $balanceAfter = $user->balance;
 
+            // Determine the provider reference field and value
+            $providerRefField = match ($provider) {
+                'flutterwave' => 'flutterwave_ref',
+                'cryptomus' => 'cryptomus_ref',
+                'korapay' => 'korapay_ref',
+                default => null,
+            };
+
+            $providerRefValue = match ($provider) {
+                'flutterwave' => $paymentData['flw_ref'] ?? null,
+                'cryptomus' => $paymentData['uuid'] ?? null,
+                'korapay' => $paymentData['reference'] ?? null,
+                default => null,
+            };
+
             // Update transaction
-            $transaction->update([
+            $updateData = [
                 'status' => 'completed',
-                'flutterwave_ref' => $paymentData['flw_ref'],
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
-            ]);
+            ];
+
+            if ($providerRefField && $providerRefValue) {
+                $updateData[$providerRefField] = $providerRefValue;
+            }
+
+            $transaction->update($updateData);
 
             DB::commit();
 
@@ -314,23 +384,75 @@ class WalletController extends Controller
     }
 
     /**
-     * Clear pending Flutterwave transactions (for testing/debugging)
+     * Get available payment methods for the user
      */
-    public function clearPendingTransactions(Request $request): JsonResponse
+    public function getPaymentMethods(): JsonResponse
     {
-        $user = $request->user();
+        $methods = [];
+        $gateways = [
+            'flutterwave' => [
+                'name' => 'Card Payment',
+                'description' => 'Visa, Mastercard, Verve',
+                'icon' => 'credit-card',
+                'service' => $this->flutterwaveService,
+            ],
+            'cryptomus' => [
+                'name' => 'Cryptocurrency',
+                'description' => 'Bitcoin, USDT, Ethereum & more',
+                'icon' => 'bitcoin',
+                'service' => $this->cryptomusService,
+            ],
+            'korapay' => [
+                'name' => 'Bank Transfer',
+                'description' => 'Direct bank transfer, USSD',
+                'icon' => 'globe',
+                'service' => $this->korapayService,
+            ],
+        ];
 
-        $deleted = Transaction::where('user_id', $user->id)
-            ->where('status', 'pending')
-            ->where('payment_method', 'flutterwave')
-            ->delete();
+        foreach ($gateways as $id => $gateway) {
+            $isEnabled = (bool) Setting::getValue("gateway_{$id}_enabled", true);
+            $isConfigured = $gateway['service']->isConfigured();
+
+            if ($isEnabled && $isConfigured) {
+                $methods[] = [
+                    'id' => $id,
+                    'name' => $gateway['name'],
+                    'description' => $gateway['description'],
+                    'icon' => $gateway['icon'],
+                ];
+            }
+        }
 
         return response()->json([
             'success' => true,
-            'message' => "Cleared {$deleted} pending transaction(s)",
-            'data' => [
-                'deleted' => $deleted,
-            ],
+            'data' => $methods,
         ]);
+    }
+
+    /**
+     * Get list of enabled payment gateways
+     */
+    private function getEnabledGateways(): array
+    {
+        $gateways = ['flutterwave', 'cryptomus', 'korapay'];
+        $enabled = [];
+
+        $services = [
+            'flutterwave' => $this->flutterwaveService,
+            'cryptomus' => $this->cryptomusService,
+            'korapay' => $this->korapayService,
+        ];
+
+        foreach ($gateways as $gateway) {
+            $isEnabled = (bool) Setting::getValue("gateway_{$gateway}_enabled", true);
+            $isConfigured = $services[$gateway]->isConfigured();
+
+            if ($isEnabled && $isConfigured) {
+                $enabled[] = $gateway;
+            }
+        }
+
+        return $enabled;
     }
 }

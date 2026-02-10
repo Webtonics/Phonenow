@@ -47,7 +47,7 @@ export const ReferralsPage = () => {
 
   const shareViaWhatsApp = () => {
     if (!dashboard) return;
-    const message = `Join PhoneNow and get ₦500 bonus! Use my referral code: ${dashboard.referral_code}\n\n${dashboard.referral_link}`;
+    const message = `Join TonicsTools and get ₦500 bonus! Use my referral code: ${dashboard.referral_code}\n\n${dashboard.referral_link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -109,7 +109,7 @@ export const ReferralsPage = () => {
       {/* Header */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Referral Program</h1>
-        <p className="text-sm sm:text-base text-gray-600">Earn ₦ by referring friends to PhoneNow</p>
+        <p className="text-sm sm:text-base text-gray-600">Earn ₦ by referring friends to TonicsTools</p>
       </div>
 
       {/* How it Works */}

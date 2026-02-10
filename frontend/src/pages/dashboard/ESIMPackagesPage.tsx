@@ -122,19 +122,9 @@ export function ESIMPackagesPage() {
     }
   };
 
-  // Apply filters and sorting
+  // Apply sorting and feature preferences
   const displayedPackages = useMemo(() => {
     let result = [...packages];
-
-    // Filter by voice
-    if (filterVoice) {
-      result = result.filter((p) => p.has_voice);
-    }
-
-    // Filter by SMS
-    if (filterSms) {
-      result = result.filter((p) => p.has_sms);
-    }
 
     // Sort
     switch (sortBy) {
@@ -146,6 +136,15 @@ export function ESIMPackagesPage() {
         break;
       default:
         result.sort((a, b) => a.selling_price - b.selling_price);
+    }
+
+    // Prioritize packages with voice/SMS at the top when toggled
+    if (filterVoice || filterSms) {
+      result.sort((a, b) => {
+        const aScore = (filterVoice && a.has_voice ? 2 : 0) + (filterSms && a.has_sms ? 1 : 0);
+        const bScore = (filterVoice && b.has_voice ? 2 : 0) + (filterSms && b.has_sms ? 1 : 0);
+        return bScore - aScore;
+      });
     }
 
     return result;
@@ -411,22 +410,9 @@ export function ESIMPackagesPage() {
               No packages found
             </h3>
             <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              {filterVoice || filterSms
-                ? 'No packages match your filter criteria. Try removing filters.'
-                : 'No eSIM packages are currently available for this country.'}
+              No eSIM packages are currently available for this country.
             </p>
             <div className="flex justify-center gap-3">
-              {(filterVoice || filterSms) && (
-                <button
-                  onClick={() => {
-                    setFilterVoice(false);
-                    setFilterSms(false);
-                  }}
-                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                >
-                  Clear Filters
-                </button>
-              )}
               <button
                 onClick={() => setSelectedCountry('')}
                 className="px-6 py-3 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"

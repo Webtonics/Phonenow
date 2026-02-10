@@ -68,14 +68,14 @@
 <body>
     <div class="container">
         <div class="logo">
-            <h1>PhoneNow</h1>
+            <img src="{{ config('app.url') }}/tonicstools_logo.png" alt="TonicsTools" style="height: 48px; max-width: 200px;" />
         </div>
 
         <h2>Verify Your Email Address</h2>
 
         <p>Hello {{ $user->name }},</p>
 
-        <p>Thank you for registering with PhoneNow! Please click the button below to verify your email address and activate your account.</p>
+        <p>Thank you for registering with TonicsTools! Please click the button below to verify your email address and activate your account.</p>
 
         <p style="text-align: center;">
             <a href="{{ $verificationUrl }}" class="button">Verify Email Address</a>
@@ -83,7 +83,7 @@
 
         <p>This verification link will expire in 24 hours.</p>
 
-        <p>If you didn't create an account with PhoneNow, please ignore this email.</p>
+        <p>If you didn't create an account with TonicsTools, please ignore this email.</p>
 
         <p class="link-fallback">
             If the button above doesn't work, copy and paste this link into your browser:<br>
@@ -91,7 +91,7 @@
         </p>
 
         <div class="footer">
-            <p>&copy; {{ date('Y') }} PhoneNow. All rights reserved.</p>
+            <p>&copy; {{ date('Y') }} TonicsTools. All rights reserved.</p>
             <p>This is an automated message, please do not reply.</p>
         </div>
     </div>

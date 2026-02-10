@@ -9,6 +9,7 @@ use App\Models\ESIMSubscription;
 use App\Models\Setting;
 use App\Services\ESIMPackageService;
 use App\Services\ESIMPricingService;
+use App\Services\ESIMPurchaseService;
 use App\Services\ZenditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ class ESIMAdminController extends Controller
     public function __construct(
         protected ZenditService $zenditService,
         protected ESIMPackageService $packageService,
-        protected ESIMPricingService $pricingService
+        protected ESIMPricingService $pricingService,
+        protected ESIMPurchaseService $purchaseService
     ) {}
 
     /**
@@ -183,6 +185,7 @@ class ESIMAdminController extends Controller
                 'expiry_warning_days' => Setting::getEsimExpiryWarningDays(),
                 'enable_usage_notifications' => (bool) Setting::getValue('esim_enable_usage_notifications', true),
                 'max_profiles_per_user' => (int) Setting::getValue('esim_max_profiles_per_user', 10),
+                'fulfillment_mode' => Setting::getValue('esim_fulfillment_mode', 'manual'),
             ],
         ];
 
@@ -209,11 +212,12 @@ class ESIMAdminController extends Controller
             'enable_usage_notifications' => ['sometimes', 'boolean'],
             'min_purchase_amount' => ['sometimes', 'numeric', 'min:0'],
             'max_profiles_per_user' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'fulfillment_mode' => ['sometimes', 'in:auto,manual'],
         ]);
 
         foreach ($validated as $key => $value) {
             $settingKey = 'esim_' . $key;
-            $type = is_bool($value) ? 'boolean' : (is_int($value) ? 'integer' : 'float');
+            $type = is_bool($value) ? 'boolean' : (is_int($value) ? 'integer' : (is_string($value) ? 'string' : 'float'));
             $group = in_array($key, ['profile_markup', 'data_markup', 'exchange_rate']) ? 'pricing' : 'esim';
 
             Setting::setValue($settingKey, $value, $type, $group);
@@ -238,7 +242,7 @@ class ESIMAdminController extends Controller
     {
         $validated = $request->validate([
             'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
-            'status' => ['sometimes', 'in:new,active,expired,cancelled'],
+            'status' => ['sometimes', 'in:new,active,expired,cancelled,awaiting_fulfillment,pending'],
             'user_id' => ['sometimes', 'integer'],
         ]);
 
@@ -312,6 +316,86 @@ class ESIMAdminController extends Controller
             'success' => true,
             'data' => $pricing,
         ]);
+    }
+
+    /**
+     * Get orders awaiting manual fulfillment
+     * GET /api/admin/esim/fulfillment-queue
+     */
+    public function fulfillmentQueue(): JsonResponse
+    {
+        $orders = ESIMProfile::where('status', 'awaiting_fulfillment')
+            ->with('user')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(fn($profile) => [
+                'id' => $profile->id,
+                'order_no' => $profile->order_no,
+                'user' => [
+                    'id' => $profile->user->id,
+                    'name' => $profile->user->name,
+                    'email' => $profile->user->email,
+                ],
+                'country_code' => $profile->country_code,
+                'country_name' => $profile->country_name,
+                'package_code' => $profile->package_code,
+                'data_amount' => (float) $profile->data_amount,
+                'data_formatted' => $profile->formatted_data,
+                'duration_days' => $profile->duration_days,
+                'selling_price' => (float) $profile->selling_price,
+                'wholesale_price' => (float) $profile->wholesale_price,
+                'profit' => (float) $profile->profit,
+                'created_at' => $profile->created_at,
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $orders,
+            'meta' => [
+                'pending_count' => $orders->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Fulfill a manual eSIM order with credentials
+     * POST /api/admin/esim/fulfill/{id}
+     */
+    public function fulfillOrder(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'iccid' => ['required', 'string'],
+            'smdp_address' => ['required', 'string'],
+            'activation_code' => ['required', 'string'],
+            'qr_code_url' => ['nullable', 'string'],
+        ]);
+
+        $result = $this->purchaseService->fulfillOrder($id, $validated, $request->user()->id);
+
+        if (!$result['success']) {
+            return response()->json($result, 400);
+        }
+
+        return response()->json($result);
+    }
+
+    /**
+     * Reject a manual eSIM order and refund user
+     * POST /api/admin/esim/reject/{id}
+     */
+    public function rejectOrder(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $result = $this->purchaseService->rejectOrder($id, $validated['reason'], $request->user()->id);
+
+        if (!$result['success']) {
+            return response()->json($result, 400);
+        }
+
+        return response()->json($result);
     }
 
     /**

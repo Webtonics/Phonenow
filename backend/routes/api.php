@@ -62,7 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/transactions/{reference}', [WalletController::class, 'getTransaction']);
         Route::post('/fund', [WalletController::class, 'initializeFunding']);
         Route::post('/verify', [WalletController::class, 'verifyFunding']);
-        Route::post('/clear-pending', [WalletController::class, 'clearPendingTransactions']);
+        Route::get('/payment-methods', [WalletController::class, 'getPaymentMethods']);
     });
 
     // Phone number routes
@@ -165,6 +165,16 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/balance', [ESIMAdminController::class, 'balance']);
             Route::get('/pricing-calculator', [ESIMAdminController::class, 'pricingCalculator']);
             Route::post('/clear-cache', [ESIMAdminController::class, 'clearCache']);
+            Route::get('/fulfillment-queue', [ESIMAdminController::class, 'fulfillmentQueue']);
+            Route::post('/fulfill/{id}', [ESIMAdminController::class, 'fulfillOrder']);
+            Route::post('/reject/{id}', [ESIMAdminController::class, 'rejectOrder']);
+        });
+
+        // Payment Gateway Management
+        Route::prefix('payment-gateways')->group(function () {
+            Route::get('/', [AdminController::class, 'getPaymentGateways']);
+            Route::put('/{gatewayId}', [AdminController::class, 'updatePaymentGateway']);
+            Route::post('/{gatewayId}/test', [AdminController::class, 'testPaymentGateway']);
         });
 
         // Referral Management

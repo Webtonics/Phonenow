@@ -1,6 +1,7 @@
 import api from './api';
 import {
   ApiResponse,
+  PaymentMethod,
   Transaction,
 } from '@/types';
 
@@ -42,10 +43,16 @@ export const walletService = {
   },
 
   /**
-   * Initiate wallet funding with Flutterwave
+   * Initiate wallet funding with selected payment provider
    */
-  fundWallet: async (amount: number): Promise<ApiResponse<FundingResponse>> => {
-    const response = await api.post<ApiResponse<FundingResponse>>('/wallet/fund', { amount });
+  fundWallet: async (
+    amount: number,
+    paymentProvider: 'flutterwave' | 'cryptomus' | 'korapay'
+  ): Promise<ApiResponse<FundingResponse>> => {
+    const response = await api.post<ApiResponse<FundingResponse>>('/wallet/fund', {
+      amount,
+      payment_provider: paymentProvider,
+    });
     return response.data;
   },
 
@@ -82,10 +89,10 @@ export const walletService = {
   },
 
   /**
-   * Clear pending Flutterwave transactions
+   * Get available payment methods (enabled + configured gateways)
    */
-  clearPending: async (): Promise<ApiResponse<{ deleted: number }>> => {
-    const response = await api.post<ApiResponse<{ deleted: number }>>('/wallet/clear-pending');
+  getPaymentMethods: async (): Promise<ApiResponse<PaymentMethod[]>> => {
+    const response = await api.get<ApiResponse<PaymentMethod[]>>('/wallet/payment-methods');
     return response.data;
   },
 };

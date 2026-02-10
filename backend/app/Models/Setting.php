@@ -189,14 +189,14 @@ class Setting extends Model
             // General settings
             [
                 'key' => 'site_name',
-                'value' => 'PhoneNow',
+                'value' => 'TonicsTools',
                 'type' => 'string',
                 'group' => 'general',
                 'description' => 'Site name',
             ],
             [
                 'key' => 'support_email',
-                'value' => 'support@phonenow.ng',
+                'value' => 'support@tonicstools.com',
                 'type' => 'string',
                 'group' => 'general',
                 'description' => 'Support email address',
@@ -214,6 +214,36 @@ class Setting extends Model
                 'type' => 'float',
                 'group' => 'payment',
                 'description' => 'Maximum deposit amount in NGN',
+            ],
+            // Payment Gateway Status
+            // eSIM Fulfillment Mode
+            [
+                'key' => 'esim_fulfillment_mode',
+                'value' => 'manual',
+                'type' => 'string',
+                'group' => 'esim',
+                'description' => 'eSIM fulfillment mode: auto (Zendit API) or manual (admin fulfills)',
+            ],
+            [
+                'key' => 'gateway_flutterwave_enabled',
+                'value' => 'true',
+                'type' => 'boolean',
+                'group' => 'payment_gateway',
+                'description' => 'Enable Flutterwave payment gateway',
+            ],
+            [
+                'key' => 'gateway_cryptomus_enabled',
+                'value' => 'true',
+                'type' => 'boolean',
+                'group' => 'payment_gateway',
+                'description' => 'Enable Cryptomus (crypto) payment gateway',
+            ],
+            [
+                'key' => 'gateway_korapay_enabled',
+                'value' => 'true',
+                'type' => 'boolean',
+                'group' => 'payment_gateway',
+                'description' => 'Enable Korapay payment gateway',
             ],
         ];
 

@@ -24,3 +24,8 @@ Schedule::job(new \App\Jobs\SyncESimPackagesJob())
     ->daily()
     ->name('sync-esim-packages')
     ->withoutOverlapping();
+
+Schedule::job(new \App\Jobs\ProcessExpiredTransactionsJob())
+    ->everyFifteenMinutes()
+    ->name('process-expired-transactions')
+    ->withoutOverlapping();

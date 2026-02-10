@@ -21,7 +21,7 @@ class VerifyEmail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Verify Your Email Address - PhoneNow',
+            subject: 'Verify Your Email Address - TonicsTools',
         );
     }
 

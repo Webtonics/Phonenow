@@ -213,7 +213,7 @@ class ESIMController extends Controller
             $user = $request->user();
 
             $validated = $request->validate([
-                'status' => ['sometimes', 'in:new,active,expired,cancelled,pending,processing'],
+                'status' => ['sometimes', 'in:new,active,expired,cancelled,pending,processing,awaiting_fulfillment'],
             ]);
 
             $query = ESIMProfile::where('user_id', $user->id)

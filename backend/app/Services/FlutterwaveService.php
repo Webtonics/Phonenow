@@ -16,8 +16,13 @@ class FlutterwaveService
 
     public function __construct()
     {
-        $this->secretKey = config('services.flutterwave.secret_key');
-        $this->publicKey = config('services.flutterwave.public_key');
+        $this->secretKey = config('services.flutterwave.secret_key') ?? '';
+        $this->publicKey = config('services.flutterwave.public_key') ?? '';
+    }
+
+    public function isConfigured(): bool
+    {
+        return !empty($this->secretKey) && !empty($this->publicKey);
     }
 
     /**
@@ -38,8 +43,8 @@ class FlutterwaveService
                 'phonenumber' => $user->phone,
             ],
             'customizations' => [
-                'title' => 'PhoneNow Wallet Funding',
-                'description' => 'Add funds to your PhoneNow wallet',
+                'title' => 'TonicsTools Wallet Funding',
+                'description' => 'Add funds to your TonicsTools wallet',
                 'logo' => config('app.url') . '/logo.png',
             ],
             'meta' => [
@@ -76,7 +81,7 @@ class FlutterwaveService
                     'amount' => $amount,
                     'balance_before' => $user->balance,
                     'balance_after' => $user->balance,
-                    'description' => 'Wallet funding via Flutterwave',
+                    'description' => 'Wallet funding via card payment',
                     'status' => 'pending',
                     'reference' => $reference,
                     'payment_method' => 'flutterwave',

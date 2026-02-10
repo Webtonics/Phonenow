@@ -1,5 +1,5 @@
 import { Outlet, Link } from 'react-router-dom';
-import { Phone, Smartphone, Shield, Zap } from 'lucide-react';
+import { Smartphone, Shield, Zap } from 'lucide-react';
 
 export const AuthLayout = () => {
   return (
@@ -9,10 +9,7 @@ export const AuthLayout = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-primary-600/90 to-secondary-600/90 z-10" />
         <div className="relative z-20 flex flex-col justify-center px-12 xl:px-20 text-white">
           <Link to="/" className="flex items-center space-x-3 mb-8">
-            <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20">
-              <Phone className="w-9 h-9 text-white" />
-            </div>
-            <span className="text-4xl font-bold">PhoneNow</span>
+            <img src="/tonicstools_logo.png" alt="TonicsTools" className="h-14 brightness-0 invert" />
           </Link>
 
           <h1 className="text-5xl font-bold mb-6 leading-tight">
@@ -66,11 +63,8 @@ export const AuthLayout = () => {
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 xl:px-12 bg-gray-50">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           {/* Mobile Logo */}
-          <Link to="/" className="flex lg:hidden justify-center items-center space-x-3 mb-8">
-            <div className="w-14 h-14 bg-primary-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Phone className="w-8 h-8 text-white" />
-            </div>
-            <span className="text-3xl font-bold text-gray-900">PhoneNow</span>
+          <Link to="/" className="flex lg:hidden justify-center items-center mb-8">
+            <img src="/tonicstools_logo.png" alt="TonicsTools" className="h-12" />
           </Link>
 
           {/* Auth Card */}
@@ -80,7 +74,7 @@ export const AuthLayout = () => {
 
           {/* Footer */}
           <p className="mt-8 text-center text-sm text-gray-600">
-            &copy; {new Date().getFullYear()} PhoneNow. All rights reserved.
+            &copy; {new Date().getFullYear()} TonicsTools. All rights reserved.
           </p>
         </div>
       </div>

@@ -77,14 +77,14 @@
 <body>
     <div class="container">
         <div class="logo">
-            <h1>PhoneNow</h1>
+            <img src="{{ config('app.url') }}/tonicstools_logo.png" alt="TonicsTools" style="height: 48px; max-width: 200px;" />
         </div>
 
         <h2>Reset Your Password</h2>
 
         <p>Hello {{ $user->name }},</p>
 
-        <p>We received a request to reset your password for your PhoneNow account. Click the button below to set a new password.</p>
+        <p>We received a request to reset your password for your TonicsTools account. Click the button below to set a new password.</p>
 
         <p style="text-align: center;">
             <a href="{{ $resetUrl }}" class="button">Reset Password</a>
@@ -102,7 +102,7 @@
         </p>
 
         <div class="footer">
-            <p>&copy; {{ date('Y') }} PhoneNow. All rights reserved.</p>
+            <p>&copy; {{ date('Y') }} TonicsTools. All rights reserved.</p>
             <p>This is an automated message, please do not reply.</p>
         </div>
     </div>

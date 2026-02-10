@@ -1,4 +1,4 @@
-# PhoneNow UI/UX Revamp - Design Reference
+# TonicsTools UI/UX Revamp - Design Reference
 
 ## Design Inspiration
 Source: Dribbble - "Zarss" Dashboard Design

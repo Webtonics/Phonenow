@@ -5,6 +5,7 @@ import {
   Order,
   Transaction,
   Service,
+  PaymentGateway,
 } from '@/types';
 
 interface DashboardData {
@@ -251,6 +252,33 @@ export const adminService = {
     max_deposit?: number;
   }): Promise<ApiResponse<Record<string, unknown>>> => {
     const response = await api.put('/admin/pricing', data);
+    return response.data;
+  },
+
+  /**
+   * Get payment gateways
+   */
+  getPaymentGateways: async (): Promise<ApiResponse<PaymentGateway[]>> => {
+    const response = await api.get<ApiResponse<PaymentGateway[]>>('/admin/payment-gateways');
+    return response.data;
+  },
+
+  /**
+   * Update payment gateway status
+   */
+  updatePaymentGateway: async (
+    gatewayId: string,
+    data: { enabled: boolean }
+  ): Promise<ApiResponse<{ gateway: string; enabled: boolean }>> => {
+    const response = await api.put(`/admin/payment-gateways/${gatewayId}`, data);
+    return response.data;
+  },
+
+  /**
+   * Test payment gateway connection
+   */
+  testPaymentGateway: async (gatewayId: string): Promise<ApiResponse<null>> => {
+    const response = await api.post(`/admin/payment-gateways/${gatewayId}/test`);
     return response.data;
   },
 };

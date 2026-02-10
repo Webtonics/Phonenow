@@ -91,8 +91,8 @@ export const WalletPage = () => {
 
   const handleFundWallet = async () => {
     const amountNum = parseInt(amount);
-    if (isNaN(amountNum) || amountNum < 1000) {
-      toast.error('Minimum amount is ₦1,000');
+    if (isNaN(amountNum) || amountNum < 2000) {
+      toast.error('Minimum deposit is ₦2,000');
       return;
     }
     if (amountNum > 1000000) {
@@ -115,7 +115,7 @@ export const WalletPage = () => {
     }
   };
 
-  const quickAmounts = [1000, 2000, 5000, 10000, 20000, 50000];
+  const quickAmounts = [2000, 5000, 10000, 20000, 50000, 100000];
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { label: string; icon: React.ReactNode; bg: string; text: string }> = {
@@ -325,12 +325,12 @@ export const WalletPage = () => {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
                 className="input !text-2xl sm:!text-3xl font-bold !pl-10 !pr-4 !py-4 sm:!py-5 rounded-xl bg-gray-50 border-gray-200 focus:bg-white placeholder:text-gray-200"
-                min={1000}
+                min={2000}
                 max={1000000}
               />
             </div>
             <p className="text-[11px] text-gray-400 mt-1.5">
-              Min ₦1,000 &middot; Max ₦1,000,000
+              Min ₦2,000 &middot; Max ₦1,000,000
             </p>
           </div>
 

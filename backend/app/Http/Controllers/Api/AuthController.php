@@ -438,11 +438,10 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        // Get total spent (all completed debit transactions)
-        $totalSpent = \App\Models\Transaction::where('user_id', $user->id)
-            ->where('type', 'debit')
+        // Get total spent (only successful/completed orders)
+        $totalSpent = \App\Models\Order::where('user_id', $user->id)
             ->where('status', 'completed')
-            ->sum('amount');
+            ->sum('amount_paid');
 
         // Get order stats
         $totalOrders = \App\Models\Order::where('user_id', $user->id)->count();

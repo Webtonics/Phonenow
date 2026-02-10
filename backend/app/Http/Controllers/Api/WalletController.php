@@ -99,7 +99,7 @@ class WalletController extends Controller
         $enabledGateways = $this->getEnabledGateways();
 
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:100', 'max:1000000'],
+            'amount' => ['required', 'numeric', 'min:2000', 'max:1000000'],
             'payment_provider' => [
                 'required',
                 'string',

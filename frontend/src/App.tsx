@@ -9,6 +9,12 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 
 // Public pages
 import { LandingPage } from '@/pages/LandingPage';
+import { ContactPage } from '@/pages/ContactPage';
+import { TermsOfServicePage } from '@/pages/legal/TermsOfServicePage';
+import { PrivacyPolicyPage } from '@/pages/legal/PrivacyPolicyPage';
+import { RefundPolicyPage } from '@/pages/legal/RefundPolicyPage';
+import { AcceptableUsePolicyPage } from '@/pages/legal/AcceptableUsePolicyPage';
+import { AboutPage } from '@/pages/AboutPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
@@ -103,6 +109,12 @@ function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<LandingPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/terms" element={<TermsOfServicePage />} />
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/refund-policy" element={<RefundPolicyPage />} />
+      <Route path="/acceptable-use" element={<AcceptableUsePolicyPage />} />
+      <Route path="/about" element={<AboutPage />} />
 
       {/* Auth routes (guest only) */}
       <Route element={<AuthLayout />}>

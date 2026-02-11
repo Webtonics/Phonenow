@@ -1240,14 +1240,14 @@ export const LandingPage = () => {
               <h4 className="text-white font-semibold mb-4">Company</h4>
               <ul className="space-y-2">
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  <Link to="/about" className="text-gray-400 hover:text-white text-sm transition-colors">
                     About Us
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  <Link to="/contact" className="text-gray-400 hover:text-white text-sm transition-colors">
                     Contact
-                  </a>
+                  </Link>
                 </li>
                 <li>
                   <a href="#faq" className="text-gray-400 hover:text-white text-sm transition-colors">
@@ -1267,24 +1267,24 @@ export const LandingPage = () => {
               <h4 className="text-white font-semibold mb-4">Legal</h4>
               <ul className="space-y-2">
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  <Link to="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
                     Terms of Service
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  <Link to="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors">
                     Privacy Policy
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  <Link to="/refund-policy" className="text-gray-400 hover:text-white text-sm transition-colors">
                     Refund Policy
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
-                    Cookie Policy
-                  </a>
+                  <Link to="/acceptable-use" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    Acceptable Use
+                  </Link>
                 </li>
               </ul>
             </div>

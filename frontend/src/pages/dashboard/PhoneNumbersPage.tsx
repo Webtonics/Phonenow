@@ -696,10 +696,12 @@ export const PhoneNumbersPage = () => {
 
       {/* Pricing Options Modal */}
       {showPricingModal && selectedService && (() => {
-        // Filter out sold-out options and low SMS deliverability (< 50%)
-        const availableOptions = operatorPrices.filter(op => op.available > 0 && op.success_rate >= 50);
-        const cheapestPrice = availableOptions.length > 0 ? Math.min(...availableOptions.map(op => op.price)) : 0;
-        const premiumPrice = availableOptions.length > 0 ? Math.max(...availableOptions.map(op => op.price)) : 0;
+        // Show all available options, mark low-success ones with warning
+        const allOptions = operatorPrices.filter(op => op.available > 0);
+        const goodOptions = allOptions.filter(op => op.success_rate >= 50);
+        const availableOptions = allOptions;
+        const cheapestPrice = goodOptions.length > 0 ? Math.min(...goodOptions.map(op => op.price)) : 0;
+        const premiumPrice = goodOptions.length > 0 ? Math.max(...goodOptions.map(op => op.price)) : 0;
 
         return (
           <div
@@ -776,15 +778,19 @@ export const PhoneNumbersPage = () => {
                 ) : (
                   <div className="space-y-3">
                     {availableOptions.map((op) => {
-                      const isCheapest = op.price === cheapestPrice;
-                      const isPremium = op.price === premiumPrice && availableOptions.length > 1;
+                      const isCheapest = op.price === cheapestPrice && op.success_rate >= 20;
+                      const isPremium = op.price === premiumPrice && availableOptions.length > 1 && op.success_rate >= 20;
+                      const isLowSuccess = op.success_rate < 20;
 
                       return (
                         <button
                           key={op.id}
-                          onClick={() => handlePurchaseWithOperator(op.id)}
-                          disabled={purchasingOperator !== null}
-                          className={`relative w-full text-left rounded-2xl p-4 transition-all duration-200 disabled:opacity-70 ${isCheapest
+                          onClick={() => !isLowSuccess && handlePurchaseWithOperator(op.id)}
+                          disabled={purchasingOperator !== null || isLowSuccess}
+                          className={`relative w-full text-left rounded-2xl p-4 transition-all duration-200 ${
+                            isLowSuccess ? 'opacity-60 cursor-not-allowed bg-gray-50 border-2 border-red-200' :
+                            purchasingOperator !== null ? 'opacity-70' : ''
+                          } ${!isLowSuccess && isCheapest
                             ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-400 hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-100'
                             : isPremium
                               ? 'bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-400 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-100'
@@ -822,26 +828,41 @@ export const PhoneNumbersPage = () => {
                                 {/* SMS Success Rate Badge */}
                                 <div className="flex items-center gap-1.5">
                                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    isLowSuccess ? 'bg-red-100 text-red-800' :
                                     op.success_rate >= 80 ? 'bg-green-100 text-green-800' :
                                     op.success_rate >= 60 ? 'bg-yellow-100 text-yellow-800' :
                                     'bg-orange-100 text-orange-800'
                                   }`}>
-                                    <Check className="w-3 h-3" />
-                                    {op.success_rate}% SMS Success
+                                    {isLowSuccess ? (
+                                      <>
+                                        <AlertCircle className="w-3 h-3" />
+                                        Low success rate ({op.success_rate}%)
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Check className="w-3 h-3" />
+                                        {op.success_rate}% SMS Success
+                                      </>
+                                    )}
                                   </span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className={`shrink-0 px-5 py-3 rounded-xl font-bold text-sm transition-all ${purchasingOperator === op.id
-                              ? 'bg-gray-200 text-gray-500'
-                              : isCheapest
-                                ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-200'
-                                : isPremium
-                                  ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-lg shadow-purple-200'
-                                  : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-200'
+                            <div className={`shrink-0 px-5 py-3 rounded-xl font-bold text-sm transition-all ${
+                              isLowSuccess
+                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                : purchasingOperator === op.id
+                                  ? 'bg-gray-200 text-gray-500'
+                                  : isCheapest
+                                    ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-200'
+                                    : isPremium
+                                      ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-lg shadow-purple-200'
+                                      : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-200'
                               }`}>
-                              {purchasingOperator === op.id ? (
+                              {isLowSuccess ? (
+                                'Unavailable'
+                              ) : purchasingOperator === op.id ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
                               ) : (
                                 'Buy'

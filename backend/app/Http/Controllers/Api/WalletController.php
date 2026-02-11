@@ -124,7 +124,7 @@ class WalletController extends Controller
         // Route to appropriate payment provider
         $result = match ($provider) {
             'flutterwave' => $this->flutterwaveService->initializePayment($user, $validated['amount']),
-            'cryptomus' => $this->cryptomusService->initializePayment($user, $validated['amount']),
+            'cryptomus' => $this->cryptomusService->initializePayment($user, $validated['amount'], 'NGN'),
             'korapay' => $this->korapayService->initializePayment($user, $validated['amount']),
         };
 
@@ -264,9 +264,10 @@ class WalletController extends Controller
         $paidAmount = (float) $paymentData['amount'];
         $expectedAmount = (float) $transaction->amount;
 
-        // For Cryptomus, convert USD back to NGN for comparison
+        // For Cryptomus, convert USD back to NGN for comparison using live rate
         if ($provider === 'cryptomus') {
-            $paidAmount = $paidAmount * 1600; // Convert USD to NGN
+            $exchangeRate = app(\App\Services\ExchangeRateService::class)->getUsdToNgnRate();
+            $paidAmount = $paidAmount * $exchangeRate; // Convert USD to NGN
         }
 
         if (abs($paidAmount - $expectedAmount) > 0.01) {

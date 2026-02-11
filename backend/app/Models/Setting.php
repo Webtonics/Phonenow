@@ -145,7 +145,7 @@ class Setting extends Model
             ],
             [
                 'key' => 'phone_deliverability_threshold',
-                'value' => '50',
+                'value' => '20',
                 'type' => 'integer',
                 'group' => 'phone',
                 'description' => 'Minimum SMS success rate percentage (0-100) for phone numbers',

@@ -128,13 +128,27 @@ class Setting extends Model
                 'group' => 'pricing',
                 'description' => 'USD to NGN exchange rate (e.g., 1600 means 1 USD = ₦1600)',
             ],
-            // Phone Number Pricing
+            // Phone Number Pricing & Deliverability
             [
                 'key' => 'phone_markup_percentage',
                 'value' => '200',
                 'type' => 'float',
                 'group' => 'pricing',
                 'description' => 'Markup percentage for phone numbers (e.g., 200 = 2x cost)',
+            ],
+            [
+                'key' => 'phone_deliverability_enabled',
+                'value' => 'true',
+                'type' => 'boolean',
+                'group' => 'phone',
+                'description' => 'Enable SMS deliverability filtering for phone numbers',
+            ],
+            [
+                'key' => 'phone_deliverability_threshold',
+                'value' => '50',
+                'type' => 'integer',
+                'group' => 'phone',
+                'description' => 'Minimum SMS success rate percentage (0-100) for phone numbers',
             ],
             [
                 'key' => 'phone_min_price',

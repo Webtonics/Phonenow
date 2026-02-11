@@ -161,6 +161,10 @@ class SmsProviderManager
             return $cached;
         }
 
+        // Get SMS deliverability threshold from settings (default: 50%)
+        $deliverabilityThreshold = (float) \App\Models\Setting::getValue('phone_deliverability_threshold', 50);
+        $deliverabilityEnabled = (bool) \App\Models\Setting::getValue('phone_deliverability_enabled', true);
+
         // Fetch from ALL enabled providers to get multiple price points
         $prices = $this->getEnabledProviders()
             ->flatMap(function (SmsProviderInterface $provider) use ($country, $product) {
@@ -185,6 +189,13 @@ class SmsProviderManager
                     ]);
                     return collect();
                 }
+            })
+            ->filter(function (PriceDto $price) use ($deliverabilityEnabled, $deliverabilityThreshold) {
+                // Filter out operators with low SMS deliverability if enabled
+                if (!$deliverabilityEnabled) {
+                    return true; // Don't filter if deliverability check is disabled
+                }
+                return $price->successRate >= $deliverabilityThreshold;
             })
             ->sortBy('cost')
             ->values();

@@ -696,8 +696,8 @@ export const PhoneNumbersPage = () => {
 
       {/* Pricing Options Modal */}
       {showPricingModal && selectedService && (() => {
-        // Filter out sold-out options and sort by price
-        const availableOptions = operatorPrices.filter(op => op.available > 0);
+        // Filter out sold-out options and low SMS deliverability (< 50%)
+        const availableOptions = operatorPrices.filter(op => op.available > 0 && op.success_rate >= 50);
         const cheapestPrice = availableOptions.length > 0 ? Math.min(...availableOptions.map(op => op.price)) : 0;
         const premiumPrice = availableOptions.length > 0 ? Math.max(...availableOptions.map(op => op.price)) : 0;
 
@@ -811,12 +811,25 @@ export const PhoneNumbersPage = () => {
                                   ₦{op.price.toLocaleString()}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${op.available > 50 ? 'bg-green-500' : op.available > 20 ? 'bg-yellow-500' : 'bg-orange-500'
-                                  }`}></div>
-                                <span className="text-sm text-gray-600">
-                                  {op.available} numbers available
-                                </span>
+                              <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${op.available > 50 ? 'bg-green-500' : op.available > 20 ? 'bg-yellow-500' : 'bg-orange-500'
+                                    }`}></div>
+                                  <span className="text-sm text-gray-600">
+                                    {op.available} numbers available
+                                  </span>
+                                </div>
+                                {/* SMS Success Rate Badge */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    op.success_rate >= 80 ? 'bg-green-100 text-green-800' :
+                                    op.success_rate >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-orange-100 text-orange-800'
+                                  }`}>
+                                    <Check className="w-3 h-3" />
+                                    {op.success_rate}% SMS Success
+                                  </span>
+                                </div>
                               </div>
                             </div>
 

@@ -13,9 +13,11 @@ class CryptomusService
     protected string $baseUrl;
     protected string $apiKey;
     protected string $merchantId;
+    protected const MIN_DEPOSIT_NGN = 10000; // Minimum deposit 10,000 NGN
 
-    public function __construct()
-    {
+    public function __construct(
+        protected ExchangeRateService $exchangeRateService
+    ) {
         $this->baseUrl = config('services.cryptomus.base_url') ?? 'https://api.cryptomus.com/v1';
         $this->apiKey = config('services.cryptomus.api_key') ?? '';
         $this->merchantId = config('services.cryptomus.merchant_id') ?? '';
@@ -38,11 +40,29 @@ class CryptomusService
             ];
         }
 
+        // Validate minimum deposit for NGN
+        if ($currency === 'NGN' && $amount < self::MIN_DEPOSIT_NGN) {
+            return [
+                'success' => false,
+                'message' => 'Minimum deposit is ₦' . number_format(self::MIN_DEPOSIT_NGN) . '. Please increase your deposit amount.',
+            ];
+        }
+
         $reference = Transaction::generateReference();
 
-        // Convert NGN to USD for Cryptomus (they work in USD for crypto)
-        // Assuming 1 USD = 1600 NGN (can be made configurable later)
-        $amountUSD = $currency === 'NGN' ? round($amount / 1600, 2) : $amount;
+        // Convert NGN to USD using live exchange rate
+        if ($currency === 'NGN') {
+            $exchangeRate = $this->exchangeRateService->getUsdToNgnRate();
+            $amountUSD = round($amount / $exchangeRate, 2);
+
+            Log::info('Cryptomus payment: NGN to USD conversion', [
+                'amount_ngn' => $amount,
+                'exchange_rate' => $exchangeRate,
+                'amount_usd' => $amountUSD,
+            ]);
+        } else {
+            $amountUSD = $amount;
+        }
 
         $payload = [
             'amount' => (string) $amountUSD,

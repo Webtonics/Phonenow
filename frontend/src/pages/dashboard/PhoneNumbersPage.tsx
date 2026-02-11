@@ -698,7 +698,7 @@ export const PhoneNumbersPage = () => {
       {showPricingModal && selectedService && (() => {
         // Show all available options, mark low-success ones with warning
         const allOptions = operatorPrices.filter(op => op.available > 0);
-        const goodOptions = allOptions.filter(op => op.success_rate >= 50);
+        const goodOptions = allOptions.filter(op => op.success_rate === null || op.success_rate >= 20);
         const availableOptions = allOptions;
         const cheapestPrice = goodOptions.length > 0 ? Math.min(...goodOptions.map(op => op.price)) : 0;
         const premiumPrice = goodOptions.length > 0 ? Math.max(...goodOptions.map(op => op.price)) : 0;
@@ -778,9 +778,9 @@ export const PhoneNumbersPage = () => {
                 ) : (
                   <div className="space-y-3">
                     {availableOptions.map((op) => {
-                      const isCheapest = op.price === cheapestPrice && op.success_rate >= 20;
-                      const isPremium = op.price === premiumPrice && availableOptions.length > 1 && op.success_rate >= 20;
-                      const isLowSuccess = op.success_rate < 20;
+                      const isCheapest = op.price === cheapestPrice && (op.success_rate === null || op.success_rate >= 20);
+                      const isPremium = op.price === premiumPrice && availableOptions.length > 1 && (op.success_rate === null || op.success_rate >= 20);
+                      const isLowSuccess = op.success_rate !== null && op.success_rate < 20;
 
                       return (
                         <button
@@ -826,26 +826,28 @@ export const PhoneNumbersPage = () => {
                                   </span>
                                 </div>
                                 {/* SMS Success Rate Badge */}
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    isLowSuccess ? 'bg-red-100 text-red-800' :
-                                    op.success_rate >= 80 ? 'bg-green-100 text-green-800' :
-                                    op.success_rate >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-orange-100 text-orange-800'
-                                  }`}>
-                                    {isLowSuccess ? (
-                                      <>
-                                        <AlertCircle className="w-3 h-3" />
-                                        Low success rate ({op.success_rate}%)
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Check className="w-3 h-3" />
-                                        {op.success_rate}% SMS Success
-                                      </>
-                                    )}
-                                  </span>
-                                </div>
+                                {op.success_rate !== null && (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      isLowSuccess ? 'bg-red-100 text-red-800' :
+                                      op.success_rate >= 80 ? 'bg-green-100 text-green-800' :
+                                      op.success_rate >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-orange-100 text-orange-800'
+                                    }`}>
+                                      {isLowSuccess ? (
+                                        <>
+                                          <AlertCircle className="w-3 h-3" />
+                                          Low success rate ({op.success_rate}%)
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Check className="w-3 h-3" />
+                                          {op.success_rate}% SMS Success
+                                        </>
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 

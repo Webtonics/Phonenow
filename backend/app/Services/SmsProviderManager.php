@@ -195,7 +195,9 @@ class SmsProviderManager
                 if (!$deliverabilityEnabled) {
                     return true; // Don't filter if deliverability check is disabled
                 }
-                return $price->successRate >= $deliverabilityThreshold;
+                // If successRate is null (provider doesn't provide it), allow it through
+                // Only filter if successRate exists AND is below threshold
+                return $price->successRate === null || $price->successRate >= $deliverabilityThreshold;
             })
             ->sortBy('cost')
             ->values();

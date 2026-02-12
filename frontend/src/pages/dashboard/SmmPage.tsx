@@ -24,7 +24,7 @@ import {
 import { toast } from 'sonner';
 import { smmService, getErrorMessage } from '@/services';
 import type { SmmCategory, SmmService, SmmOrder, SmmOrderStatus } from '@/types';
-import { getStatusColor, getStatusLabel } from '@/types/smm';
+import { getSmmStatusColor, getSmmStatusLabel } from '@/types/smm';
 
 const categoryIcons: Record<string, React.ReactNode> = {
   instagram: <Instagram className="w-6 h-6" />,
@@ -178,8 +178,8 @@ export const SmmPage = () => {
   };
 
   const getStatusBadge = (status: SmmOrderStatus) => {
-    const color = getStatusColor(status);
-    const label = getStatusLabel(status);
+    const color = getSmmStatusColor(status);
+    const label = getSmmStatusLabel(status);
 
     const config: Record<string, { icon: React.ReactNode; bg: string; text: string }> = {
       green: { icon: <CheckCircle className="w-3 h-3" />, bg: 'bg-green-50', text: 'text-green-700' },

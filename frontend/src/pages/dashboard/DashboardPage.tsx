@@ -20,9 +20,9 @@ interface DashboardStats {
   total_orders: number;
   active_orders: number;
   completed_orders: number;
-  smm_orders: number;
-  smm_spent: number;
-  smm_active: number;
+  smm_orders?: number;
+  smm_spent?: number;
+  smm_active?: number;
   recent_orders: Array<{
     id: number;
     order_number: string;

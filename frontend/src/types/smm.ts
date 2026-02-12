@@ -51,7 +51,7 @@ export interface SmmOrder {
   completed_at?: string;
 }
 
-export function getStatusColor(status: SmmOrderStatus): string {
+export function getSmmStatusColor(status: SmmOrderStatus): string {
   const colors: Record<SmmOrderStatus, string> = {
     pending: 'gray',
     processing: 'blue',
@@ -64,7 +64,7 @@ export function getStatusColor(status: SmmOrderStatus): string {
   return colors[status];
 }
 
-export function getStatusLabel(status: SmmOrderStatus): string {
+export function getSmmStatusLabel(status: SmmOrderStatus): string {
   const labels: Record<SmmOrderStatus, string> = {
     pending: 'Pending',
     processing: 'Processing',

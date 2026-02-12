@@ -20,6 +20,9 @@ interface DashboardStats {
   total_orders: number;
   active_orders: number;
   completed_orders: number;
+  smm_orders: number;
+  smm_spent: number;
+  smm_active: number;
   recent_orders: Array<{
     id: number;
     order_number: string;
@@ -70,10 +73,10 @@ export const DashboardPage = () => {
       color: 'bg-purple-500',
     },
     {
-      name: 'Add Funds',
-      description: 'Top up your wallet',
-      icon: Wallet,
-      href: '/wallet',
+      name: 'SMM Services',
+      description: 'Boost social media presence',
+      icon: TrendingUp,
+      href: '/smm',
       color: 'bg-accent-500',
     },
     {
@@ -143,20 +146,11 @@ export const DashboardPage = () => {
           Welcome back, {user?.name?.split(' ')[0]}!
         </h1>
         <p className="opacity-80">Ready to get verified?</p>
-        <div className="mt-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm opacity-80">Current Balance</p>
-            <p className="text-3xl font-bold">
-              ₦{user?.balance?.toLocaleString() || '0.00'}
-            </p>
-          </div>
-          <Link
-            to="/wallet"
-            className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-colors inline-flex items-center"
-          >
-            Add Funds
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Link>
+        <div className="mt-4">
+          <p className="text-sm opacity-80">Current Balance</p>
+          <p className="text-3xl font-bold">
+            ₦{user?.balance?.toLocaleString() || '0.00'}
+          </p>
         </div>
       </div>
 
@@ -185,7 +179,7 @@ export const DashboardPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
@@ -199,7 +193,7 @@ export const DashboardPage = () => {
               )}
             </div>
             <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-primary-500" />
+              <Wallet className="w-5 h-5 text-primary-500" />
             </div>
           </div>
         </div>
@@ -220,20 +214,37 @@ export const DashboardPage = () => {
             </div>
           </div>
         </div>
-        <div className="card sm:col-span-2 lg:col-span-1">
+        <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Completed Orders</p>
+              <p className="text-sm text-gray-500">SMM Orders</p>
               {loading ? (
                 <Loader2 className="w-6 h-6 animate-spin text-gray-400 mt-1" />
               ) : (
                 <p className="text-2xl font-bold text-gray-900">
-                  {stats?.completed_orders || 0}
+                  {stats?.smm_orders || 0}
                 </p>
               )}
             </div>
-            <div className="w-10 h-10 bg-secondary-100 rounded-lg flex items-center justify-center">
-              <Phone className="w-5 h-5 text-secondary-500" />
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-purple-500" />
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">SMM Spent</p>
+              {loading ? (
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400 mt-1" />
+              ) : (
+                <p className="text-2xl font-bold text-gray-900">
+                  ₦{stats?.smm_spent?.toLocaleString() || '0'}
+                </p>
+              )}
+            </div>
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-green-500" />
             </div>
           </div>
         </div>

@@ -37,6 +37,7 @@ import { ESIMProfileDetailPage } from '@/pages/dashboard/ESIMProfileDetailPage';
 import { ReferralsPage } from '@/pages/dashboard/ReferralsPage';
 import { ReferralsListPage } from '@/pages/dashboard/ReferralsListPage';
 import { CommissionsPage } from '@/pages/dashboard/CommissionsPage';
+import { SmmPage } from '@/pages/dashboard/SmmPage';
 
 // Admin pages
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
@@ -176,6 +177,7 @@ function AppRoutes() {
         <Route path="/referrals" element={<ReferralsPage />} />
         <Route path="/referrals/list" element={<ReferralsListPage />} />
         <Route path="/referrals/commissions" element={<CommissionsPage />} />
+        <Route path="/smm" element={<SmmPage />} />
       </Route>
 
       {/* Admin routes */}

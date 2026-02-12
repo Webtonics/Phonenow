@@ -452,6 +452,15 @@ class AuthController extends Controller
             ->where('status', 'completed')
             ->count();
 
+        // Get SMM stats
+        $smmOrders = \App\Models\SmmOrder::where('user_id', $user->id)->count();
+        $smmSpent = \App\Models\SmmOrder::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->sum('amount');
+        $smmActive = \App\Models\SmmOrder::where('user_id', $user->id)
+            ->whereIn('status', ['pending', 'processing', 'in_progress'])
+            ->count();
+
         // Get recent orders
         $recentOrders = \App\Models\Order::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
@@ -476,6 +485,9 @@ class AuthController extends Controller
                 'active_orders' => $activeOrders,
                 'completed_orders' => $completedOrders,
                 'recent_orders' => $recentOrders,
+                'smm_orders' => $smmOrders,
+                'smm_spent' => (float) $smmSpent,
+                'smm_active' => $smmActive,
             ],
         ]);
     }

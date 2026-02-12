@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Plus,
   Users,
+  TrendingUp,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Wallet', href: '/wallet', icon: Wallet },
   { name: 'Phone Numbers', href: '/phone-numbers', icon: Phone },
+  { name: 'SMM Services', href: '/smm', icon: TrendingUp },
   { name: 'eSIM Packages', href: '/esim/packages', icon: Wifi },
   { name: 'My eSIMs', href: '/esim/my-profiles', icon: Wifi },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },

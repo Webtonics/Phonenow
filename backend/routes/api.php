@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\ESIMAdminController;
 use App\Http\Controllers\Api\Admin\ReferralAdminController;
+use App\Http\Controllers\Api\Admin\SmmAdminController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ESIMController;
@@ -184,6 +185,19 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/fulfillment-queue', [ESIMAdminController::class, 'fulfillmentQueue']);
             Route::post('/fulfill/{id}', [ESIMAdminController::class, 'fulfillOrder']);
             Route::post('/reject/{id}', [ESIMAdminController::class, 'rejectOrder']);
+        });
+
+        // SMM Management
+        Route::prefix('smm')->group(function () {
+            Route::get('/dashboard', [SmmAdminController::class, 'dashboard']);
+            Route::post('/sync-services', [SmmAdminController::class, 'syncServices']);
+            Route::get('/services', [SmmAdminController::class, 'getServices']);
+            Route::put('/services/{service}', [SmmAdminController::class, 'updateService']);
+            Route::get('/orders', [SmmAdminController::class, 'getOrders']);
+            Route::post('/orders/{order}/update-status', [SmmAdminController::class, 'updateOrderStatus']);
+            Route::get('/categories', [SmmAdminController::class, 'getCategories']);
+            Route::put('/categories/{category}', [SmmAdminController::class, 'updateCategory']);
+            Route::get('/check-balances', [SmmAdminController::class, 'checkBalances']);
         });
 
         // Payment Gateway Management

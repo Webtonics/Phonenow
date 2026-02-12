@@ -129,9 +129,10 @@ class WalletController extends Controller
             ->update(['status' => 'expired']);
 
         // Route to appropriate payment provider
+        // Note: For cryptomus, amount is already converted to USD on frontend
         $result = match ($provider) {
             'flutterwave' => $this->flutterwaveService->initializePayment($user, $validated['amount']),
-            'cryptomus' => $this->cryptomusService->initializePayment($user, $validated['amount'], 'NGN'),
+            'cryptomus' => $this->cryptomusService->initializePayment($user, $validated['amount'], 'USD'),
             'korapay' => $this->korapayService->initializePayment($user, $validated['amount']),
         };
 

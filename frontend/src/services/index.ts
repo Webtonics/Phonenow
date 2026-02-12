@@ -6,3 +6,4 @@ export { ordersService } from './orders.service';
 export { adminService } from './admin.service';
 export { esimService } from './esim.service';
 export { referralService } from './referral.service';
+export { smmService } from './smmService';

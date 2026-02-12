@@ -231,3 +231,6 @@ export interface PaymentMethod {
 
 // Re-export eSIM types
 export * from './esim';
+
+// Re-export SMM types
+export * from './smm';

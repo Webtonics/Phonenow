@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ESIMController;
 use App\Http\Controllers\Api\PhoneController;
 use App\Http\Controllers\Api\ReferralController;
+use App\Http\Controllers\Api\SmmController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Webhooks\ZenditWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -115,6 +116,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/commissions', [ReferralController::class, 'getCommissions']);
         Route::get('/withdrawals', [ReferralController::class, 'getWithdrawals']);
         Route::post('/withdraw', [ReferralController::class, 'requestWithdrawal']);
+    });
+
+    // SMM (Social Media Marketing) routes
+    Route::prefix('smm')->group(function () {
+        // Browse services
+        Route::get('/categories', [SmmController::class, 'getCategories']);
+        Route::get('/services', [SmmController::class, 'getServices']);
+        Route::get('/services/{service}', [SmmController::class, 'getService']);
+
+        // Orders
+        Route::post('/orders', [SmmController::class, 'createOrder']);
+        Route::get('/orders', [SmmController::class, 'getOrders']);
+        Route::get('/orders/{reference}', [SmmController::class, 'getOrder']);
+        Route::post('/orders/{reference}/cancel', [SmmController::class, 'cancelOrder']);
+        Route::post('/orders/{reference}/refresh', [SmmController::class, 'refreshOrderStatus']);
     });
 
     // Admin routes

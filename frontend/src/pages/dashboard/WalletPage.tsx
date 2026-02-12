@@ -91,10 +91,20 @@ export const WalletPage = () => {
 
   const handleFundWallet = async () => {
     const amountNum = parseInt(amount);
-    if (isNaN(amountNum) || amountNum < 2000) {
-      toast.error('Minimum deposit is ₦2,000');
-      return;
+
+    // Crypto payment has higher minimum
+    if (paymentProvider === 'cryptomus') {
+      if (isNaN(amountNum) || amountNum < 10000) {
+        toast.error('Minimum deposit with crypto is ₦10,000');
+        return;
+      }
+    } else {
+      if (isNaN(amountNum) || amountNum < 2000) {
+        toast.error('Minimum deposit is ₦2,000');
+        return;
+      }
     }
+
     if (amountNum > 1000000) {
       toast.error('Maximum amount is ₦1,000,000');
       return;
@@ -325,12 +335,12 @@ export const WalletPage = () => {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
                 className="input !text-2xl sm:!text-3xl font-bold !pl-10 !pr-4 !py-4 sm:!py-5 rounded-xl bg-gray-50 border-gray-200 focus:bg-white placeholder:text-gray-200"
-                min={2000}
+                min={paymentProvider === 'cryptomus' ? 10000 : 2000}
                 max={1000000}
               />
             </div>
             <p className="text-[11px] text-gray-400 mt-1.5">
-              Min ₦2,000 &middot; Max ₦1,000,000
+              Min ₦{paymentProvider === 'cryptomus' ? '10,000' : '2,000'} &middot; Max ₦1,000,000
             </p>
           </div>
 

@@ -98,8 +98,15 @@ class WalletController extends Controller
 
         $enabledGateways = $this->getEnabledGateways();
 
+        // Get payment provider first for dynamic validation
+        $provider = $request->input('payment_provider');
+
+        // Dynamic minimum based on payment provider
+        // Cryptomus receives USD amounts (converted on frontend), so minimum is lower
+        $minAmount = ($provider === 'cryptomus') ? 1 : 2000;
+
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:2000', 'max:1000000'],
+            'amount' => ['required', 'numeric', 'min:' . $minAmount, 'max:1000000'],
             'payment_provider' => [
                 'required',
                 'string',

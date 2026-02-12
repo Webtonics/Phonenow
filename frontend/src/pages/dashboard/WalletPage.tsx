@@ -112,7 +112,14 @@ export const WalletPage = () => {
 
     setIsLoading(true);
     try {
-      const response = await walletService.fundWallet(amountNum, paymentProvider);
+      // For crypto payments, convert NGN to USD before sending
+      let finalAmount = amountNum;
+      if (paymentProvider === 'cryptomus') {
+        const exchangeRate = 1600; // NGN to USD rate
+        finalAmount = Math.round((amountNum / exchangeRate) * 100) / 100; // Convert and round to 2 decimals
+      }
+
+      const response = await walletService.fundWallet(finalAmount, paymentProvider);
       if (response.data?.link) {
         window.location.href = response.data.link;
       } else {
@@ -377,7 +384,12 @@ export const WalletPage = () => {
             ) : (
               <>
                 <CreditCard className="w-4 h-4" />
-                Fund Wallet{amount ? ` — ₦${parseInt(amount).toLocaleString()}` : ''}
+                Fund Wallet
+                {amount && paymentProvider === 'cryptomus'
+                  ? ` — $${(parseInt(amount) / 1600).toFixed(2)} USD`
+                  : amount
+                    ? ` — ₦${parseInt(amount).toLocaleString()}`
+                    : ''}
               </>
             )}
           </button>

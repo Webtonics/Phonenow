@@ -71,4 +71,10 @@ return [
         'base_url' => env('PEAKERR_BASE_URL', 'https://peakerr.com/api/v2'),
     ],
 
+    'jap' => [
+        'api_key' => env('JAP_API_KEY'),
+        'base_url' => env('JAP_BASE_URL', 'https://justanotherpanel.com/api/v2'),
+        'enabled' => env('JAP_ENABLED', true),
+    ],
+
 ];

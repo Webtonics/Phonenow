@@ -33,7 +33,7 @@ jobs:
         run: npm run build
 
       - name: Deploy frontend to server
-        uses: appleboy/scp-action@v0.1.4
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT }}
@@ -48,7 +48,7 @@ jobs:
       # BACKEND DEPLOY
       # ============================================
       - name: Deploy backend to server
-        uses: appleboy/scp-action@v0.1.4
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT }}

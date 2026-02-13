@@ -2,56 +2,15 @@ import api from './api';
 import { ApiResponse } from '@/types';
 import {
   SmmCategory,
-  SmmService,
-  SmmOrder,
+  SmmOrderStatus,
 } from '@/types/smm';
-
-interface SmmDashboardStats {
-  total_orders: number;
-  pending_orders: number;
-  processing_orders: number;
-  completed_orders: number;
-  failed_orders: number;
-  total_revenue: number;
-  today_revenue: number;
-  active_services: number;
-  total_services: number;
-  recent_orders: Array<{
-    id: number;
-    reference: string;
-    user: {
-      name: string;
-      email: string;
-    };
-    service: {
-      name: string;
-      category: string;
-    };
-    quantity: number;
-    amount: number;
-    status: string;
-    created_at: string;
-  }>;
-}
-
-interface SmmServiceDetailed extends SmmService {
-  sales_count?: number;
-  is_active: boolean;
-}
-
-interface ProviderBalance {
-  provider: string;
-  balance: number;
-  currency: string;
-  status: string;
-}
 
 export const adminSmmService = {
   /**
    * Get SMM dashboard statistics
    */
-  getDashboard: async (): Promise<ApiResponse<SmmDashboardStats>> => {
-    const response = await api.get<ApiResponse<SmmDashboardStats>>('/admin/smm/dashboard');
+  getDashboard: async (): Promise<ApiResponse<any>> => {
+    const response = await api.get<ApiResponse<any>>('/admin/smm/dashboard');
     return response.data;
   },
 
@@ -73,8 +32,8 @@ export const adminSmmService = {
     provider?: string;
     is_active?: boolean;
     search?: string;
-  } = {}): Promise<ApiResponse<SmmServiceDetailed[]>> => {
-    const response = await api.get<ApiResponse<SmmServiceDetailed[]>>('/admin/smm/services', { params });
+  } = {}): Promise<ApiResponse<any[]>> => {
+    const response = await api.get<ApiResponse<any[]>>('/admin/smm/services', { params });
     return response.data;
   },
 
@@ -90,8 +49,8 @@ export const adminSmmService = {
       is_active?: boolean;
       sort_order?: number;
     }
-  ): Promise<ApiResponse<SmmServiceDetailed>> => {
-    const response = await api.put<ApiResponse<SmmServiceDetailed>>(`/admin/smm/services/${serviceId}`, data);
+  ): Promise<ApiResponse<any>> => {
+    const response = await api.put<ApiResponse<any>>(`/admin/smm/services/${serviceId}`, data);
     return response.data;
   },
 
@@ -106,16 +65,16 @@ export const adminSmmService = {
     search?: string;
     from_date?: string;
     to_date?: string;
-  } = {}): Promise<ApiResponse<SmmOrder[]>> => {
-    const response = await api.get<ApiResponse<SmmOrder[]>>('/admin/smm/orders', { params });
+  } = {}): Promise<ApiResponse<any[]>> => {
+    const response = await api.get<ApiResponse<any[]>>('/admin/smm/orders', { params });
     return response.data;
   },
 
   /**
    * Update order status from provider
    */
-  updateOrderStatus: async (orderId: number): Promise<ApiResponse<SmmOrder>> => {
-    const response = await api.post<ApiResponse<SmmOrder>>(`/admin/smm/orders/${orderId}/update-status`);
+  updateOrderStatus: async (orderId: number): Promise<ApiResponse<any>> => {
+    const response = await api.post<ApiResponse<any>>(`/admin/smm/orders/${orderId}/update-status`);
     return response.data;
   },
 
@@ -146,8 +105,8 @@ export const adminSmmService = {
   /**
    * Check provider balances
    */
-  checkBalances: async (): Promise<ApiResponse<ProviderBalance[]>> => {
-    const response = await api.get<ApiResponse<ProviderBalance[]>>('/admin/smm/check-balances');
+  checkBalances: async (): Promise<ApiResponse<any[]>> => {
+    const response = await api.get<ApiResponse<any[]>>('/admin/smm/check-balances');
     return response.data;
   },
 };

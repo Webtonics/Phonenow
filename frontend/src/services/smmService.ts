@@ -39,6 +39,7 @@ export const smmService = {
   getOrders: async (params?: {
     status?: string;
     per_page?: number;
+    page?: number;
   }): Promise<ApiResponse<SmmOrder[]>> => {
     const response = await api.get<ApiResponse<SmmOrder[]>>('/smm/orders', { params });
     return response.data;

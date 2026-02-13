@@ -33,32 +33,40 @@ jobs:
         run: npm run build
 
       - name: Deploy frontend to server
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "frontend/dist/*"
-          target: "/home/u317386001/domains/tonicstools.com/public_html/"
-          strip_components: 2
-          rm: true
+          script: |
+            # Remove old frontend files
+            rm -rf /home/u317386001/domains/tonicstools.com/public_html/*
+
+      - name: Upload frontend files
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/ssh_key
+          chmod 600 /tmp/ssh_key
+          rsync -avz --delete -e "ssh -i /tmp/ssh_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no" \
+            frontend/dist/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/u317386001/domains/tonicstools.com/public_html/
+          rm /tmp/ssh_key
 
       # ============================================
       # BACKEND DEPLOY
       # ============================================
       - name: Deploy backend to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          port: ${{ secrets.SSH_PORT }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "backend/*"
-          target: "/home/u317386001/domains/tonicstools.com/public_html/api/"
-          strip_components: 1
-          rm: false
-          overwrite: true
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/ssh_key
+          chmod 600 /tmp/ssh_key
+          rsync -avz -e "ssh -i /tmp/ssh_key -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no" \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='node_modules' \
+            --exclude='storage/logs/*' \
+            backend/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/u317386001/domains/tonicstools.com/public_html/api/
+          rm /tmp/ssh_key
 
       # ============================================
       # POST-DEPLOYMENT COMMANDS

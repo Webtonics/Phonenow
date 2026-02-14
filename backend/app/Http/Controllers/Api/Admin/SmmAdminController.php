@@ -48,6 +48,9 @@ class SmmAdminController extends Controller
      */
     public function syncServices(): JsonResponse
     {
+        // Increase execution time for large sync operations (5 minutes)
+        set_time_limit(300);
+
         $results = $this->smmManager->syncServices();
 
         return response()->json([

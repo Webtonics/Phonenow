@@ -18,7 +18,9 @@ export const adminSmmService = {
    * Sync services from all providers
    */
   syncServices: async (): Promise<ApiResponse<any>> => {
-    const response = await api.post<ApiResponse<any>>('/admin/smm/sync-services');
+    const response = await api.post<ApiResponse<any>>('/admin/smm/sync-services', {}, {
+      timeout: 300000, // 5 minutes timeout for large sync operations
+    });
     return response.data;
   },
 

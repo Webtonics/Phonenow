@@ -240,11 +240,12 @@ export function AdminSMMPage() {
   const fetchProviderBalances = async () => {
     try {
       const response = await adminSmmService.checkBalances();
-      if (response.success) {
+      if (response.success && Array.isArray(response.data)) {
         setProviderBalances(response.data);
       }
     } catch (error) {
       console.error('Failed to fetch provider balances:', error);
+      setProviderBalances([]);
     }
   };
 
@@ -381,6 +382,24 @@ export function AdminSMMPage() {
       {/* Tab Content */}
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
+          {/* Sync Services Button */}
+          <div className="card bg-gradient-to-r from-purple-500 to-blue-500 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Sync Services from Provider</h3>
+                <p className="text-purple-100 text-sm">Import the latest services from JustAnotherPanel</p>
+              </div>
+              <button
+                onClick={handleSyncServices}
+                disabled={syncing}
+                className="px-6 py-3 bg-white text-purple-600 rounded-lg hover:bg-purple-50 font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync Now'}
+              </button>
+            </div>
+          </div>
+
           {/* Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
@@ -460,31 +479,37 @@ export function AdminSMMPage() {
           <div className="card">
             <h2 className="text-lg font-semibold mb-4">Provider Status</h2>
             <div className="space-y-4">
-              {providerBalances.map((provider) => (
-                <div key={provider.provider} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {provider.status === 'connected' ? (
-                      <CheckCircle className="w-6 h-6 text-green-500" />
-                    ) : (
-                      <AlertCircle className="w-6 h-6 text-red-500" />
-                    )}
-                    <div>
-                      <p className="font-medium">{provider.provider.toUpperCase()}</p>
-                      <p className="text-sm text-gray-500">
-                        Balance: {provider.currency} {provider.balance.toFixed(2)}
-                      </p>
+              {!Array.isArray(providerBalances) || providerBalances.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <AlertCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No provider information available</p>
+                </div>
+              ) : (
+                providerBalances.map((provider) => (
+                  <div key={provider.provider} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      {provider.status === 'connected' ? (
+                        <CheckCircle className="w-6 h-6 text-green-500" />
+                      ) : (
+                        <AlertCircle className="w-6 h-6 text-red-500" />
+                      )}
+                      <div>
+                        <p className="font-medium">{provider.provider.toUpperCase()}</p>
+                        <p className="text-sm text-gray-500">
+                          Balance: {provider.currency} {provider.balance.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      provider.status === 'connected'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {provider.status === 'connected' ? 'Connected' : 'Disconnected'}
                     </div>
                   </div>
-                  <button
-                    onClick={handleSyncServices}
-                    disabled={syncing}
-                    className="btn-primary flex items-center gap-2"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                    {syncing ? 'Syncing...' : 'Sync Services'}
-                  </button>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 

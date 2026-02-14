@@ -17,8 +17,8 @@ export const adminSmmService = {
   /**
    * Sync services from all providers
    */
-  syncServices: async (): Promise<ApiResponse<{ synced: number; message: string }>> => {
-    const response = await api.post<ApiResponse<{ synced: number; message: string }>>('/admin/smm/sync-services');
+  syncServices: async (): Promise<ApiResponse<any>> => {
+    const response = await api.post<ApiResponse<any>>('/admin/smm/sync-services');
     return response.data;
   },
 

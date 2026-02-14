@@ -888,18 +888,193 @@ export function AdminSMMPage() {
       )}
 
       {activeTab === 'settings' && (
-        <div className="space-y-6">
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4">Provider Configuration</h2>
+        <div className="space-y-5 sm:space-y-6">
+          {/* Global Markup Configuration */}
+          <div className="card !p-5 sm:!p-6">
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <Settings className="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Pricing Configuration</h2>
+                <p className="text-xs text-gray-400">Set default markup for all SMM services</p>
+              </div>
+            </div>
+
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Configure SMM provider settings and test connections. Settings are managed in your .env file.
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  SMM provider settings (API keys, base URLs) must be configured in your backend .env file.
-                  Use the sync button on the Dashboard tab to sync services from providers.
-                </p>
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-100 rounded-xl p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Default Markup Percentage
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        placeholder="e.g., 50"
+                        min="0"
+                        step="1"
+                        defaultValue="50"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      This markup is applied to provider cost when syncing services
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Example Calculation
+                    </label>
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      <div className="space-y-1.5 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Provider Cost (per 1K):</span>
+                          <span className="font-medium">₦1,000</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Markup (50%):</span>
+                          <span className="font-medium">₦500</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-1.5">
+                          <span className="text-gray-900 font-semibold">Your Price:</span>
+                          <span className="font-bold text-purple-600">₦1,500</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-5">
+                  <button
+                    disabled={saving}
+                    className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Markup Settings'
+                    )}
+                  </button>
+                  <button className="px-5 py-2.5 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all">
+                    Reset to Default
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <AlertCircle className="w-5 h-5 text-blue-600" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-900 mb-1">How Markup Works</p>
+                    <p className="text-sm text-blue-700">
+                      When you sync services, the system automatically calculates your selling price by adding the markup percentage to the provider's cost. You can manually adjust individual service prices in the Services tab.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Provider Status */}
+          <div className="card !p-5 sm:!p-6">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="p-2 bg-green-50 rounded-lg">
+                <CheckCircle className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Provider Status</h2>
+                <p className="text-xs text-gray-400">Active SMM service providers</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {!Array.isArray(providerBalances) || providerBalances.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-xl">
+                  <AlertCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm text-gray-500">No provider information available</p>
+                </div>
+              ) : (
+                providerBalances.map((provider) => (
+                  <div key={provider.provider} className="flex items-center justify-between p-4 bg-white border-2 border-gray-100 rounded-xl hover:border-purple-200 transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        provider.status === 'connected' ? 'bg-green-50' : 'bg-red-50'
+                      }`}>
+                        {provider.status === 'connected' ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <XCircle className="w-5 h-5 text-red-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">{provider.provider.toUpperCase()}</p>
+                        <p className="text-sm text-gray-500">
+                          Balance: {provider.currency} {provider.balance.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                      provider.status === 'connected'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {provider.status === 'connected' ? 'Connected' : 'Disconnected'}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Advanced Settings */}
+          <div className="card !p-5 sm:!p-6">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="p-2 bg-gray-50 rounded-lg">
+                <Settings className="w-4 h-4 text-gray-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Advanced Configuration</h2>
+                <p className="text-xs text-gray-400">Provider API keys and endpoint configuration</p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex gap-3">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-amber-900 mb-1">Environment Configuration</p>
+                  <p className="text-sm text-amber-700 mb-3">
+                    Provider API keys and base URLs must be configured in your backend <code className="px-1.5 py-0.5 bg-amber-100 rounded text-xs">.env</code> file for security.
+                  </p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-start gap-2">
+                      <code className="px-2 py-1 bg-white rounded text-xs font-mono">JAP_API_KEY</code>
+                      <span className="text-amber-700">JustAnotherPanel API Key</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <code className="px-2 py-1 bg-white rounded text-xs font-mono">JAP_BASE_URL</code>
+                      <span className="text-amber-700">API Endpoint URL</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <code className="px-2 py-1 bg-white rounded text-xs font-mono">JAP_ENABLED</code>
+                      <span className="text-amber-700">Enable/Disable Provider</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

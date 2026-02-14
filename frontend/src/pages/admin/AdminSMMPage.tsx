@@ -271,7 +271,13 @@ export function AdminSMMPage() {
           const result = results[provider];
           if (result.success) {
             totalSynced += result.synced || 0;
-            messages.push(`${provider.toUpperCase()}: Retrieved ${result.retrieved || 0}, synced ${result.synced || 0}`);
+            const msg = `${provider.toUpperCase()}: Retrieved ${result.retrieved || 0}, synced ${result.synced || 0}, failed ${result.failed || 0}`;
+            messages.push(msg);
+
+            // Add error samples if any
+            if (result.errors && result.errors.length > 0) {
+              messages.push(`  Sample errors: ${result.errors.join('; ')}`);
+            }
           } else {
             messages.push(`${provider.toUpperCase()}: ${result.message}`);
           }

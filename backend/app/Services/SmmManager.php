@@ -72,18 +72,25 @@ class SmmManager
             try {
                 $services = $provider->getServices();
                 $serviceCount = $services->count();
-                $synced = $this->storeServices($identifier, $services);
+                $syncResult = $this->storeServices($identifier, $services);
+
+                // Extract synced count and errors
+                $synced = is_array($syncResult) ? $syncResult['synced'] : $syncResult;
+                $errors = is_array($syncResult) ? ($syncResult['errors'] ?? []) : [];
 
                 $results[$identifier] = [
                     'success' => true,
                     'retrieved' => $serviceCount,
                     'synced' => $synced,
-                    'message' => "Retrieved {$serviceCount} services, synced {$synced} from {$provider->getDisplayName()}",
+                    'failed' => $serviceCount - $synced,
+                    'errors' => $errors,
+                    'message' => "Retrieved {$serviceCount} services, synced {$synced}, failed " . ($serviceCount - $synced) . " from {$provider->getDisplayName()}",
                 ];
 
                 Log::info("SMM services synced from {$identifier}", [
                     'retrieved' => $serviceCount,
                     'synced' => $synced,
+                    'failed' => $serviceCount - $synced,
                 ]);
             } catch (\Exception $e) {
                 $results[$identifier] = [
@@ -105,9 +112,10 @@ class SmmManager
     /**
      * Store services from provider
      */
-    protected function storeServices(string $provider, Collection $services): int
+    protected function storeServices(string $provider, Collection $services): array
     {
         $synced = 0;
+        $errors = [];
 
         foreach ($services as $serviceData) {
             try {
@@ -142,13 +150,33 @@ class SmmManager
 
                 $synced++;
             } catch (\Exception $e) {
-                Log::warning("Failed to sync service: {$serviceData['name']}", [
-                    'error' => $e->getMessage(),
+                // Collect first 3 unique errors for debugging
+                $errorMsg = $e->getMessage();
+                if (count($errors) < 3 && !in_array($errorMsg, $errors)) {
+                    $errors[] = $errorMsg;
+                }
+
+                Log::warning("Failed to sync service: " . ($serviceData['name'] ?? 'Unknown'), [
+                    'error' => $errorMsg,
+                    'service_id' => $serviceData['provider_service_id'] ?? 'unknown',
                 ]);
             }
         }
 
-        return $synced;
+        // Log summary of errors if any occurred
+        if (!empty($errors)) {
+            Log::error("SMM sync errors for provider {$provider}", [
+                'total_services' => $services->count(),
+                'synced' => $synced,
+                'failed' => $services->count() - $synced,
+                'sample_errors' => $errors,
+            ]);
+        }
+
+        return [
+            'synced' => $synced,
+            'errors' => $errors,
+        ];
     }
 
     /**

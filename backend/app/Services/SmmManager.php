@@ -58,19 +58,31 @@ class SmmManager
     {
         $results = [];
 
+        if (empty($this->providers)) {
+            Log::warning("No SMM providers enabled");
+            return [
+                'warning' => true,
+                'message' => 'No SMM providers are currently enabled. Check your configuration.',
+                'providers' => [],
+            ];
+        }
+
         foreach ($this->providers as $identifier => $provider) {
             try {
                 $services = $provider->getServices();
+                $serviceCount = $services->count();
                 $synced = $this->storeServices($identifier, $services);
 
                 $results[$identifier] = [
                     'success' => true,
+                    'retrieved' => $serviceCount,
                     'synced' => $synced,
-                    'message' => "Synced {$synced} services from {$provider->getDisplayName()}",
+                    'message' => "Retrieved {$serviceCount} services, synced {$synced} from {$provider->getDisplayName()}",
                 ];
 
                 Log::info("SMM services synced from {$identifier}", [
-                    'count' => $synced,
+                    'retrieved' => $serviceCount,
+                    'synced' => $synced,
                 ]);
             } catch (\Exception $e) {
                 $results[$identifier] = [
@@ -81,6 +93,7 @@ class SmmManager
 
                 Log::error("SMM service sync failed for {$identifier}", [
                     'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
                 ]);
             }
         }

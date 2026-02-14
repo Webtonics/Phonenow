@@ -251,11 +251,40 @@ export function AdminSMMPage() {
 
   const handleSyncServices = async () => {
     setSyncing(true);
-    toast.info('Syncing SMM services from providers... This may take a few minutes.');
+    toast.info('Syncing SMM services from providers...');
     try {
       const response = await adminSmmService.syncServices();
       if (response.success) {
-        toast.success(response.message || `Synced ${response.data.synced} services`);
+        // Process provider results
+        const results = response.data;
+        let totalSynced = 0;
+        let messages: string[] = [];
+
+        // Handle warning case (no providers enabled)
+        if (results.warning) {
+          toast.warning(results.message || 'No providers enabled');
+          return;
+        }
+
+        // Process each provider's result
+        Object.keys(results).forEach((provider) => {
+          const result = results[provider];
+          if (result.success) {
+            totalSynced += result.synced || 0;
+            messages.push(`${provider.toUpperCase()}: Retrieved ${result.retrieved || 0}, synced ${result.synced || 0}`);
+          } else {
+            messages.push(`${provider.toUpperCase()}: ${result.message}`);
+          }
+        });
+
+        if (totalSynced > 0) {
+          toast.success(`Synced ${totalSynced} services!\n${messages.join('\n')}`);
+        } else if (messages.length > 0) {
+          toast.warning(`Sync completed but no services saved:\n${messages.join('\n')}`);
+        } else {
+          toast.info('Sync completed');
+        }
+
         await fetchDashboard();
         if (activeTab === 'services') {
           await fetchServices();

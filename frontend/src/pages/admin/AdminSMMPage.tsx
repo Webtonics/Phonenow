@@ -504,33 +504,47 @@ export function AdminSMMPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {stats?.recent_orders.map((order) => (
-                    <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 text-sm font-mono">{order.reference}</td>
-                      <td className="py-3 px-4 text-sm">
-                        <div>
-                          <p className="font-medium">{order.user.name}</p>
-                          <p className="text-gray-500 text-xs">{order.user.email}</p>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        <div>
-                          <p className="font-medium">{order.service.name}</p>
-                          <p className="text-gray-500 text-xs">{order.service.category}</p>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm font-medium">₦{order.amount.toLocaleString()}</td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getSmmStatusColor(order.status as SmmOrderStatus)}`}>
-                          {getStatusIcon(order.status)}
-                          {getSmmStatusLabel(order.status as SmmOrderStatus)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-500">
-                        {new Date(order.created_at).toLocaleDateString()}
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
                       </td>
                     </tr>
-                  ))}
+                  ) : (stats?.recent_orders || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-gray-500">
+                        No recent orders
+                      </td>
+                    </tr>
+                  ) : (
+                    (stats?.recent_orders || []).map((order) => (
+                      <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 text-sm font-mono">{order.reference}</td>
+                        <td className="py-3 px-4 text-sm">
+                          <div>
+                            <p className="font-medium">{order.user.name}</p>
+                            <p className="text-gray-500 text-xs">{order.user.email}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          <div>
+                            <p className="font-medium">{order.service.name}</p>
+                            <p className="text-gray-500 text-xs">{order.service.category}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm font-medium">₦{order.amount.toLocaleString()}</td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getSmmStatusColor(order.status as SmmOrderStatus)}`}>
+                            {getStatusIcon(order.status)}
+                            {getSmmStatusLabel(order.status as SmmOrderStatus)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-500">
+                          {new Date(order.created_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

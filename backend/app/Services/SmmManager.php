@@ -156,7 +156,7 @@ class SmmManager
      */
     protected function getOrCreateCategory(string $name): SmmCategory
     {
-        $slug = \Str::slug($name);
+        $slug = Str::slug($name);
 
         return SmmCategory::firstOrCreate(
             ['slug' => $slug],

@@ -70,11 +70,17 @@ class SmmController extends Controller
                       $cq->where('name', 'like', '%' . $search . '%');
                   });
             });
+
+            // Relevance ordering: name starts with search term first, then contains
+            $query->orderByRaw("CASE WHEN name LIKE ? THEN 0 ELSE 1 END", [$search . '%'])
+                ->orderBy('sort_order')
+                ->orderBy('name');
+        } else {
+            $query->orderBy('sort_order')
+                ->orderBy('name');
         }
 
-        $services = $query->orderBy('sort_order')
-            ->orderBy('name')
-            ->paginate($validated['per_page'] ?? 50);
+        $services = $query->paginate($validated['per_page'] ?? 50);
 
         return response()->json([
             'success' => true,

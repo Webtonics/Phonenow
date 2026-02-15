@@ -51,19 +51,33 @@ export function SmmPage() {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
-  const { currentPage, setTotalPages, nextPage, prevPage, hasNextPage, hasPrevPage } = usePagination();
+  const servicePagination = usePagination();
+  const orderPagination = usePagination();
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    servicePagination.resetToFirstPage();
+  }, [selectedCategory, debouncedSearch]);
+
+  useEffect(() => {
+    orderPagination.resetToFirstPage();
+  }, [orderFilter]);
+
   useEffect(() => {
     if (activeView === 'services') {
       fetchServices();
-    } else {
+    }
+  }, [activeView, selectedCategory, debouncedSearch, servicePagination.currentPage]);
+
+  useEffect(() => {
+    if (activeView === 'orders') {
       fetchOrders();
     }
-  }, [activeView, selectedCategory, debouncedSearch, currentPage, orderFilter]);
+  }, [activeView, orderFilter, orderPagination.currentPage]);
 
   const fetchCategories = async () => {
     try {
@@ -83,11 +97,12 @@ export function SmmPage() {
         category_id: selectedCategory || undefined,
         search: debouncedSearch || undefined,
         per_page: 12,
+        page: servicePagination.currentPage,
       });
       if (response.success) {
         setServices(response.data);
         if (response.meta) {
-          setTotalPages(response.meta.last_page);
+          servicePagination.setTotalPages(response.meta.last_page);
         }
       }
     } catch (error) {
@@ -103,12 +118,12 @@ export function SmmPage() {
       const response = await smmService.getOrders({
         status: orderFilter === 'all' ? undefined : orderFilter,
         per_page: 10,
-        page: currentPage,
+        page: orderPagination.currentPage,
       });
       if (response.success) {
         setOrders(response.data);
         if (response.meta) {
-          setTotalPages(response.meta.last_page);
+          orderPagination.setTotalPages(response.meta.last_page);
         }
       }
     } catch (error) {
@@ -339,74 +354,99 @@ export function SmmPage() {
               <p className="text-sm text-gray-500">Try adjusting your search or filters</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {services.map((service) => (
-                <button
-                  key={service.id}
-                  onClick={() => handleServiceClick(service)}
-                  className="card !p-5 hover:shadow-lg hover:border-purple-200 transition-all text-left group"
-                >
-                  {/* Service Header */}
-                  <div className="flex items-start gap-3.5 mb-4">
-                    <div className="flex-shrink-0 p-2.5 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
-                      <ServiceIcon service={getServiceIcon(service.name, service.category?.name)} size={32} />
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {services.map((service) => (
+                  <button
+                    key={service.id}
+                    onClick={() => handleServiceClick(service)}
+                    className="card !p-5 hover:shadow-lg hover:border-purple-200 transition-all text-left group"
+                  >
+                    {/* Service Header */}
+                    <div className="flex items-start gap-3.5 mb-4">
+                      <div className="flex-shrink-0 p-2.5 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
+                        <ServiceIcon service={getServiceIcon(service.name, service.category?.name)} size={32} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-purple-600 transition-colors text-sm">
+                          {service.name}
+                        </h3>
+                        <p className="text-xs text-gray-500">{service.category.name}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-purple-600 transition-colors text-sm">
-                        {service.name}
-                      </h3>
-                      <p className="text-xs text-gray-500">{service.category.name}</p>
-                    </div>
-                  </div>
 
-                  {/* Service Details */}
-                  <div className="space-y-2.5 mb-4">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600 text-xs">Price per 1K</span>
-                      <span className="font-bold text-purple-600">
-                        ₦{Number(service.price_per_1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
+                    {/* Service Details */}
+                    <div className="space-y-2.5 mb-4">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600 text-xs">Price per 1K</span>
+                        <span className="font-bold text-purple-600">
+                          ₦{Number(service.price_per_1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600 text-xs">Min / Max</span>
+                        <span className="font-medium text-gray-900 text-xs">
+                          {Math.round(service.min_order).toLocaleString()} - {Math.round(service.max_order).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600 text-xs">Min / Max</span>
-                      <span className="font-medium text-gray-900 text-xs">
-                        {Math.round(service.min_order).toLocaleString()} - {Math.round(service.max_order).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
 
-                  {/* Features */}
-                  <div className="flex flex-wrap gap-1.5 mb-4">
-                    {service.refill_enabled && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-[11px] font-medium rounded-full">
-                        <RefreshCw className="w-2.5 h-2.5" />
-                        Refill
-                      </span>
-                    )}
-                    {service.cancel_enabled && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-700 text-[11px] font-medium rounded-full">
-                        <XCircle className="w-2.5 h-2.5" />
-                        Cancelable
-                      </span>
-                    )}
-                    {service.average_time_minutes && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-medium rounded-full">
-                        <Zap className="w-2.5 h-2.5" />
-                        {service.average_time_minutes}m
-                      </span>
-                    )}
-                  </div>
-
-                  {/* CTA */}
-                  <div className="pt-3 border-t border-gray-100">
-                    <div className="flex items-center justify-center gap-2 text-purple-600 font-medium text-sm group-hover:gap-3 transition-all">
-                      Order Now
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    {/* Features */}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {service.refill_enabled && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 text-[11px] font-medium rounded-full">
+                          <RefreshCw className="w-2.5 h-2.5" />
+                          Refill
+                        </span>
+                      )}
+                      {service.cancel_enabled && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-700 text-[11px] font-medium rounded-full">
+                          <XCircle className="w-2.5 h-2.5" />
+                          Cancelable
+                        </span>
+                      )}
+                      {service.average_time_minutes && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-medium rounded-full">
+                          <Zap className="w-2.5 h-2.5" />
+                          {service.average_time_minutes}m
+                        </span>
+                      )}
                     </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+
+                    {/* CTA */}
+                    <div className="pt-3 border-t border-gray-100">
+                      <div className="flex items-center justify-center gap-2 text-purple-600 font-medium text-sm group-hover:gap-3 transition-all">
+                        Order Now
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Services Pagination */}
+              {(servicePagination.hasPrevPage || servicePagination.hasNextPage) && (
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={servicePagination.prevPage}
+                    disabled={!servicePagination.hasPrevPage}
+                    className="px-5 py-2.5 rounded-xl border border-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:border-purple-300 hover:bg-purple-50 transition-all text-sm"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-500">
+                    Page {servicePagination.currentPage} of {servicePagination.totalPages}
+                  </span>
+                  <button
+                    onClick={servicePagination.nextPage}
+                    disabled={!servicePagination.hasNextPage}
+                    className="px-5 py-2.5 rounded-xl border border-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:border-purple-300 hover:bg-purple-50 transition-all text-sm"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -515,18 +555,21 @@ export function SmmPage() {
           )}
 
           {/* Pagination */}
-          {orders.length > 0 && (hasPrevPage || hasNextPage) && (
-            <div className="flex justify-center gap-2">
+          {orders.length > 0 && (orderPagination.hasPrevPage || orderPagination.hasNextPage) && (
+            <div className="flex items-center justify-center gap-3">
               <button
-                onClick={prevPage}
-                disabled={!hasPrevPage}
+                onClick={orderPagination.prevPage}
+                disabled={!orderPagination.hasPrevPage}
                 className="px-5 py-2.5 rounded-xl border border-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:border-purple-300 hover:bg-purple-50 transition-all text-sm"
               >
                 Previous
               </button>
+              <span className="text-sm text-gray-500">
+                Page {orderPagination.currentPage} of {orderPagination.totalPages}
+              </span>
               <button
-                onClick={nextPage}
-                disabled={!hasNextPage}
+                onClick={orderPagination.nextPage}
+                disabled={!orderPagination.hasNextPage}
                 className="px-5 py-2.5 rounded-xl border border-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:border-purple-300 hover:bg-purple-50 transition-all text-sm"
               >
                 Next

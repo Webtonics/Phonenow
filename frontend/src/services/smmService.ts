@@ -14,6 +14,7 @@ export const smmService = {
     type?: string;
     search?: string;
     per_page?: number;
+    page?: number;
   }): Promise<ApiResponse<SmmService[]>> => {
     const response = await api.get<ApiResponse<SmmService[]>>('/smm/services', { params });
     return response.data;

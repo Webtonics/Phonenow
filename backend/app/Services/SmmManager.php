@@ -204,11 +204,11 @@ class SmmManager
         $markup = (float) Setting::getValue('smm_default_markup', config('smm.default_markup', 50));
         $price = $cost * (1 + ($markup / 100));
 
-        // Convert USD to NGN (assuming cost is in USD)
+        // Convert USD to NGN (cost is already per 1000 from provider)
         $exchangeRate = app(ExchangeRateService::class)->getUsdToNgnRate();
         $priceInNgn = $price * $exchangeRate;
 
-        return round($priceInNgn / 1000, 2); // Price per 1000 in NGN
+        return round($priceInNgn, 2);
     }
 
     /**

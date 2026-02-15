@@ -200,6 +200,9 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/check-balances', [SmmAdminController::class, 'checkBalances']);
             Route::get('/settings', [SmmAdminController::class, 'getSettings']);
             Route::put('/settings', [SmmAdminController::class, 'updateSettings']);
+            Route::get('/fulfillment-queue', [SmmAdminController::class, 'fulfillmentQueue']);
+            Route::post('/orders/{order}/fulfill', [SmmAdminController::class, 'fulfillOrder']);
+            Route::post('/orders/{order}/reject', [SmmAdminController::class, 'rejectOrder']);
         });
 
         // Payment Gateway Management

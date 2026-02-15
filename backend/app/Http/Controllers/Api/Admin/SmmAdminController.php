@@ -24,6 +24,7 @@ class SmmAdminController extends Controller
     {
         $totalOrders = SmmOrder::count();
         $pendingOrders = SmmOrder::whereIn('status', ['pending', 'processing', 'in_progress'])->count();
+        $awaitingFulfillment = SmmOrder::where('status', 'awaiting_fulfillment')->count();
         $completedOrders = SmmOrder::where('status', 'completed')->count();
         $totalRevenue = SmmOrder::where('status', 'completed')->sum('amount');
         $todayRevenue = SmmOrder::where('status', 'completed')
@@ -35,6 +36,7 @@ class SmmAdminController extends Controller
             'data' => [
                 'total_orders' => $totalOrders,
                 'pending_orders' => $pendingOrders,
+                'awaiting_fulfillment' => $awaitingFulfillment,
                 'completed_orders' => $completedOrders,
                 'total_revenue' => (float) $totalRevenue,
                 'today_revenue' => (float) $todayRevenue,
@@ -227,6 +229,7 @@ class SmmAdminController extends Controller
             'success' => true,
             'data' => [
                 'markup_percentage' => (float) Setting::getValue('smm_default_markup', config('smm.default_markup', 50)),
+                'fulfillment_mode' => Setting::getValue('smm_fulfillment_mode', 'manual'),
             ],
         ]);
     }
@@ -237,17 +240,80 @@ class SmmAdminController extends Controller
     public function updateSettings(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'markup_percentage' => ['required', 'numeric', 'min:0', 'max:500'],
+            'markup_percentage' => ['sometimes', 'numeric', 'min:0', 'max:500'],
+            'fulfillment_mode' => ['sometimes', 'string', 'in:auto,manual'],
         ]);
 
-        Setting::setValue('smm_default_markup', $validated['markup_percentage'], 'float', 'smm', 'Default markup percentage for SMM services');
+        if (isset($validated['markup_percentage'])) {
+            Setting::setValue('smm_default_markup', $validated['markup_percentage'], 'float', 'smm', 'Default markup percentage for SMM services');
+        }
+
+        if (isset($validated['fulfillment_mode'])) {
+            Setting::setValue('smm_fulfillment_mode', $validated['fulfillment_mode'], 'string', 'smm', 'SMM order fulfillment mode (auto or manual)');
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'SMM settings updated successfully',
             'data' => [
-                'markup_percentage' => (float) $validated['markup_percentage'],
+                'markup_percentage' => (float) Setting::getValue('smm_default_markup', config('smm.default_markup', 50)),
+                'fulfillment_mode' => Setting::getValue('smm_fulfillment_mode', 'manual'),
             ],
         ]);
+    }
+
+    /**
+     * Get fulfillment queue (orders awaiting manual fulfillment)
+     */
+    public function fulfillmentQueue(Request $request): JsonResponse
+    {
+        $orders = SmmOrder::where('status', 'awaiting_fulfillment')
+            ->with(['user', 'service.category'])
+            ->orderBy('created_at', 'asc')
+            ->paginate($request->per_page ?? 50);
+
+        return response()->json([
+            'success' => true,
+            'data' => $orders->items(),
+            'meta' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'per_page' => $orders->perPage(),
+                'total' => $orders->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Fulfill an order (manual fulfillment)
+     */
+    public function fulfillOrder(Request $request, SmmOrder $order): JsonResponse
+    {
+        $validated = $request->validate([
+            'provider_order_id' => ['nullable', 'string', 'max:255'],
+            'admin_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $result = $this->smmManager->fulfillOrder(
+            $order,
+            $validated['provider_order_id'] ?? null,
+            $validated['admin_notes'] ?? null
+        );
+
+        return response()->json($result, $result['success'] ? 200 : 400);
+    }
+
+    /**
+     * Reject an order and refund user (manual fulfillment)
+     */
+    public function rejectOrder(Request $request, SmmOrder $order): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $result = $this->smmManager->rejectOrder($order, $validated['reason']);
+
+        return response()->json($result, $result['success'] ? 200 : 400);
     }
 }

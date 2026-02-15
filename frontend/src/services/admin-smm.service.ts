@@ -5,6 +5,11 @@ import {
   SmmOrderStatus,
 } from '@/types/smm';
 
+export interface SmmSettings {
+  markup_percentage: number;
+  fulfillment_mode: 'auto' | 'manual';
+}
+
 export const adminSmmService = {
   /**
    * Get SMM dashboard statistics
@@ -115,16 +120,52 @@ export const adminSmmService = {
   /**
    * Get SMM settings
    */
-  getSettings: async (): Promise<ApiResponse<{ markup_percentage: number }>> => {
-    const response = await api.get<ApiResponse<{ markup_percentage: number }>>('/admin/smm/settings');
+  getSettings: async (): Promise<ApiResponse<SmmSettings>> => {
+    const response = await api.get<ApiResponse<SmmSettings>>('/admin/smm/settings');
     return response.data;
   },
 
   /**
    * Update SMM settings
    */
-  updateSettings: async (data: { markup_percentage: number }): Promise<ApiResponse<{ markup_percentage: number }>> => {
-    const response = await api.put<ApiResponse<{ markup_percentage: number }>>('/admin/smm/settings', data);
+  updateSettings: async (data: Partial<SmmSettings>): Promise<ApiResponse<SmmSettings>> => {
+    const response = await api.put<ApiResponse<SmmSettings>>('/admin/smm/settings', data);
+    return response.data;
+  },
+
+  /**
+   * Get fulfillment queue (orders awaiting manual fulfillment)
+   */
+  getFulfillmentQueue: async (params: {
+    page?: number;
+    per_page?: number;
+  } = {}): Promise<ApiResponse<any[]>> => {
+    const response = await api.get<ApiResponse<any[]>>('/admin/smm/fulfillment-queue', { params });
+    return response.data;
+  },
+
+  /**
+   * Fulfill an order (manual fulfillment)
+   */
+  fulfillOrder: async (
+    orderId: number,
+    data: {
+      provider_order_id?: string;
+      admin_notes?: string;
+    }
+  ): Promise<ApiResponse<any>> => {
+    const response = await api.post<ApiResponse<any>>(`/admin/smm/orders/${orderId}/fulfill`, data);
+    return response.data;
+  },
+
+  /**
+   * Reject an order and refund user
+   */
+  rejectOrder: async (
+    orderId: number,
+    data: { reason: string }
+  ): Promise<ApiResponse<any>> => {
+    const response = await api.post<ApiResponse<any>>(`/admin/smm/orders/${orderId}/reject`, data);
     return response.data;
   },
 };

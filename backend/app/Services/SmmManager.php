@@ -221,6 +221,14 @@ class SmmManager
     }
 
     /**
+     * Get the current fulfillment mode
+     */
+    public function getFulfillmentMode(): string
+    {
+        return Setting::getValue('smm_fulfillment_mode', 'manual');
+    }
+
+    /**
      * Create an order
      */
     public function createOrder(User $user, SmmService $service, string $link, int $quantity): array
@@ -245,6 +253,8 @@ class SmmManager
             ];
         }
 
+        $fulfillmentMode = $this->getFulfillmentMode();
+
         DB::beginTransaction();
 
         try {
@@ -266,7 +276,36 @@ class SmmManager
                 'reference' => 'TXN-' . strtoupper(uniqid()),
             ]);
 
-            // Create order
+            if ($fulfillmentMode === 'manual') {
+                // Manual mode: create order as awaiting_fulfillment, don't call provider
+                $order = SmmOrder::create([
+                    'user_id' => $user->id,
+                    'service_id' => $service->id,
+                    'reference' => SmmOrder::generateReference(),
+                    'provider' => $service->provider,
+                    'link' => $link,
+                    'quantity' => $quantity,
+                    'amount' => $amount,
+                    'cost' => $cost,
+                    'status' => 'awaiting_fulfillment',
+                    'transaction_id' => $transaction->id,
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+                ]);
+
+                DB::commit();
+
+                return [
+                    'success' => true,
+                    'message' => 'Order placed successfully! Your order is being processed.',
+                    'data' => [
+                        'order' => $order,
+                        'reference' => $order->reference,
+                    ],
+                ];
+            }
+
+            // Auto mode: forward to provider
             $order = SmmOrder::create([
                 'user_id' => $user->id,
                 'service_id' => $service->id,
@@ -326,6 +365,97 @@ class SmmManager
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Fulfill an order (admin manual fulfillment)
+     */
+    public function fulfillOrder(SmmOrder $order, ?string $providerOrderId = null, ?string $adminNotes = null): array
+    {
+        if ($order->status !== 'awaiting_fulfillment') {
+            return [
+                'success' => false,
+                'message' => 'Only orders awaiting fulfillment can be fulfilled',
+            ];
+        }
+
+        $order->update([
+            'status' => 'completed',
+            'provider_order_id' => $providerOrderId,
+            'admin_notes' => $adminNotes,
+            'completed_at' => now(),
+            'fulfilled_at' => now(),
+            'remains' => 0,
+        ]);
+
+        return [
+            'success' => true,
+            'message' => 'Order fulfilled successfully',
+            'data' => $order->fresh(),
+        ];
+    }
+
+    /**
+     * Reject an order and refund the user (admin manual fulfillment)
+     */
+    public function rejectOrder(SmmOrder $order, string $reason): array
+    {
+        if ($order->status !== 'awaiting_fulfillment') {
+            return [
+                'success' => false,
+                'message' => 'Only orders awaiting fulfillment can be rejected',
+            ];
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $user = $order->user;
+            $balanceBefore = $user->balance;
+
+            // Refund the user
+            $user->increment('balance', $order->amount);
+            $user->refresh();
+            $balanceAfter = $user->balance;
+
+            // Create refund transaction
+            $user->transactions()->create([
+                'type' => 'credit',
+                'amount' => $order->amount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'status' => 'completed',
+                'description' => "SMM Order Refund: {$order->reference}",
+                'reference' => 'TXN-' . strtoupper(uniqid()),
+            ]);
+
+            // Update order status
+            $order->update([
+                'status' => 'cancelled',
+                'admin_notes' => $reason,
+                'status_message' => 'Order rejected by admin: ' . $reason,
+            ]);
+
+            DB::commit();
+
+            return [
+                'success' => true,
+                'message' => 'Order rejected and user refunded',
+                'data' => $order->fresh(),
+            ];
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('SMM order rejection failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Failed to reject order: ' . $e->getMessage(),
             ];
         }
     }

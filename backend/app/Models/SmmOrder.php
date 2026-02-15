@@ -21,11 +21,13 @@ class SmmOrder extends Model
         'start_count',
         'remains',
         'status_message',
+        'admin_notes',
         'transaction_id',
         'balance_before',
         'balance_after',
         'provider_created_at',
         'completed_at',
+        'fulfilled_at',
     ];
 
     protected $casts = [
@@ -38,6 +40,7 @@ class SmmOrder extends Model
         'balance_after' => 'decimal:2',
         'provider_created_at' => 'datetime',
         'completed_at' => 'datetime',
+        'fulfilled_at' => 'datetime',
     ];
 
     public static function generateReference(): string
@@ -70,6 +73,11 @@ class SmmOrder extends Model
         return in_array($this->status, ['pending', 'processing']);
     }
 
+    public function isAwaitingFulfillment(): bool
+    {
+        return $this->status === 'awaiting_fulfillment';
+    }
+
     public function isRefundable(): bool
     {
         return in_array($this->status, ['cancelled', 'failed', 'partial']);
@@ -77,6 +85,10 @@ class SmmOrder extends Model
 
     public function getProgressPercentage(): int
     {
+        if ($this->status === 'completed') {
+            return 100;
+        }
+
         if ($this->start_count === null || $this->remains === null) {
             return 0;
         }
@@ -98,5 +110,10 @@ class SmmOrder extends Model
     public function scopeCompleted($query)
     {
         return $query->where('status', 'completed');
+    }
+
+    public function scopeAwaitingFulfillment($query)
+    {
+        return $query->where('status', 'awaiting_fulfillment');
     }
 }

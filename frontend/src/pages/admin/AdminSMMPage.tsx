@@ -14,8 +14,10 @@ import {
   Search,
   Edit2,
   ExternalLink,
+  Package,
 } from 'lucide-react';
 import { adminSmmService, getErrorMessage } from '@/services';
+import type { SmmSettings } from '@/services/admin-smm.service';
 import {
   SmmCategory,
   SmmOrderStatus,
@@ -26,9 +28,8 @@ import {
 interface SmmDashboardStats {
   total_orders: number;
   pending_orders: number;
-  processing_orders: number;
+  awaiting_fulfillment: number;
   completed_orders: number;
-  failed_orders: number;
   total_revenue: number;
   today_revenue: number;
   active_services: number;
@@ -87,11 +88,13 @@ interface SmmOrderDetailed {
   link: string;
   quantity: number;
   amount: number;
+  cost: string;
   status: SmmOrderStatus;
   progress: number;
   start_count?: number;
   remains?: number;
   provider_order_id?: string;
+  admin_notes?: string;
   created_at: string;
   completed_at?: string;
 }
@@ -103,11 +106,14 @@ interface ProviderBalance {
   status: string;
 }
 
+type TabId = 'dashboard' | 'services' | 'orders' | 'fulfillment' | 'settings';
+
 export function AdminSMMPage() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'services' | 'orders' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [stats, setStats] = useState<SmmDashboardStats | null>(null);
   const [services, setServices] = useState<SmmServiceDetailed[]>([]);
   const [orders, setOrders] = useState<SmmOrderDetailed[]>([]);
+  const [fulfillmentQueue, setFulfillmentQueue] = useState<SmmOrderDetailed[]>([]);
   const [categories, setCategories] = useState<SmmCategory[]>([]);
   const [providerBalances, setProviderBalances] = useState<ProviderBalance[]>([]);
 
@@ -146,7 +152,15 @@ export function AdminSMMPage() {
 
   // Settings state
   const [markupValue, setMarkupValue] = useState<number>(50);
+  const [fulfillmentMode, setFulfillmentMode] = useState<'auto' | 'manual'>('manual');
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Fulfillment modals
+  const [fulfillingOrder, setFulfillingOrder] = useState<SmmOrderDetailed | null>(null);
+  const [rejectingOrder, setRejectingOrder] = useState<SmmOrderDetailed | null>(null);
+  const [fulfillForm, setFulfillForm] = useState({ provider_order_id: '', admin_notes: '' });
+  const [rejectReason, setRejectReason] = useState('');
+  const [processingFulfill, setProcessingFulfill] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -157,6 +171,8 @@ export function AdminSMMPage() {
       fetchCategories();
     } else if (activeTab === 'orders') {
       fetchOrders();
+    } else if (activeTab === 'fulfillment') {
+      fetchFulfillmentQueue();
     } else if (activeTab === 'settings') {
       fetchSmmSettings();
       fetchProviderBalances();
@@ -233,6 +249,23 @@ export function AdminSMMPage() {
     }
   };
 
+  const fetchFulfillmentQueue = async () => {
+    setLoading(true);
+    try {
+      const response = await adminSmmService.getFulfillmentQueue({ page: currentPage, per_page: 20 });
+      if (response.success) {
+        setFulfillmentQueue(response.data);
+        if (response.meta) {
+          setTotalPages(response.meta.last_page);
+        }
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchCategories = async () => {
     try {
       const response = await adminSmmService.getCategories();
@@ -261,6 +294,7 @@ export function AdminSMMPage() {
       const response = await adminSmmService.getSettings();
       if (response.success) {
         setMarkupValue(response.data.markup_percentage);
+        setFulfillmentMode(response.data.fulfillment_mode);
       }
     } catch (error) {
       console.error('Failed to fetch SMM settings:', error);
@@ -270,7 +304,10 @@ export function AdminSMMPage() {
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     try {
-      const response = await adminSmmService.updateSettings({ markup_percentage: markupValue });
+      const response = await adminSmmService.updateSettings({
+        markup_percentage: markupValue,
+        fulfillment_mode: fulfillmentMode,
+      });
       if (response.success) {
         toast.success('SMM settings updated successfully');
       }
@@ -287,26 +324,21 @@ export function AdminSMMPage() {
     try {
       const response = await adminSmmService.syncServices();
       if (response.success) {
-        // Process provider results
         const results = response.data;
         let totalSynced = 0;
         let messages: string[] = [];
 
-        // Handle warning case (no providers enabled)
         if (results.warning) {
           toast.warning(results.message || 'No providers enabled');
           return;
         }
 
-        // Process each provider's result
         Object.keys(results).forEach((provider) => {
           const result = results[provider];
           if (result.success) {
             totalSynced += result.synced || 0;
             const msg = `${provider.toUpperCase()}: Retrieved ${result.retrieved || 0}, synced ${result.synced || 0}, failed ${result.failed || 0}`;
             messages.push(msg);
-
-            // Add error samples if any
             if (result.errors && result.errors.length > 0) {
               messages.push(`  Sample errors: ${result.errors.join('; ')}`);
             }
@@ -381,6 +413,54 @@ export function AdminSMMPage() {
     }
   };
 
+  const handleFulfillOrder = async () => {
+    if (!fulfillingOrder) return;
+    setProcessingFulfill(true);
+    try {
+      const response = await adminSmmService.fulfillOrder(fulfillingOrder.id, {
+        provider_order_id: fulfillForm.provider_order_id || undefined,
+        admin_notes: fulfillForm.admin_notes || undefined,
+      });
+      if (response.success) {
+        toast.success('Order fulfilled successfully');
+        setFulfillingOrder(null);
+        setFulfillForm({ provider_order_id: '', admin_notes: '' });
+        await fetchFulfillmentQueue();
+        await fetchDashboard();
+      } else {
+        toast.error(response.message || 'Failed to fulfill order');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setProcessingFulfill(false);
+    }
+  };
+
+  const handleRejectOrder = async () => {
+    if (!rejectingOrder || !rejectReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+    setProcessingFulfill(true);
+    try {
+      const response = await adminSmmService.rejectOrder(rejectingOrder.id, { reason: rejectReason });
+      if (response.success) {
+        toast.success('Order rejected and user refunded');
+        setRejectingOrder(null);
+        setRejectReason('');
+        await fetchFulfillmentQueue();
+        await fetchDashboard();
+      } else {
+        toast.error(response.message || 'Failed to reject order');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setProcessingFulfill(false);
+    }
+  };
+
   const calculateMarkup = (cost: number, price: number): number => {
     if (cost === 0) return 0;
     return ((price - cost) / cost) * 100;
@@ -401,6 +481,8 @@ export function AdminSMMPage() {
         return <Clock className="w-4 h-4 text-yellow-500" />;
       case 'pending':
         return <Clock className="w-4 h-4 text-blue-500" />;
+      case 'awaiting_fulfillment':
+        return <Package className="w-4 h-4 text-purple-500" />;
       case 'failed':
       case 'cancelled':
         return <XCircle className="w-4 h-4 text-red-500" />;
@@ -408,6 +490,8 @@ export function AdminSMMPage() {
         return <Clock className="w-4 h-4 text-gray-400" />;
     }
   };
+
+  const fulfillmentCount = stats?.awaiting_fulfillment || 0;
 
   return (
     <div className="space-y-6">
@@ -421,18 +505,19 @@ export function AdminSMMPage() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {[
-            { id: 'dashboard', name: 'Dashboard', icon: TrendingUp },
-            { id: 'services', name: 'Services', icon: ShoppingCart },
-            { id: 'orders', name: 'Orders', icon: ShoppingCart },
-            { id: 'settings', name: 'Settings', icon: Settings },
-          ].map((tab) => (
+        <nav className="-mb-px flex space-x-8 overflow-x-auto">
+          {([
+            { id: 'dashboard' as TabId, name: 'Dashboard', icon: TrendingUp },
+            { id: 'services' as TabId, name: 'Services', icon: ShoppingCart },
+            { id: 'orders' as TabId, name: 'Orders', icon: ShoppingCart },
+            { id: 'fulfillment' as TabId, name: 'Fulfillment', icon: Package, badge: fulfillmentCount },
+            { id: 'settings' as TabId, name: 'Settings', icon: Settings },
+          ]).map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => { setActiveTab(tab.id); setCurrentPage(1); setTotalPages(1); }}
               className={`
-                flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap
                 ${activeTab === tab.id
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -441,6 +526,11 @@ export function AdminSMMPage() {
             >
               <tab.icon className="w-5 h-5" />
               {tab.name}
+              {tab.badge ? (
+                <span className="ml-1 px-2 py-0.5 text-xs font-bold rounded-full bg-purple-100 text-purple-700">
+                  {tab.badge}
+                </span>
+              ) : null}
             </button>
           ))}
         </nav>
@@ -481,6 +571,18 @@ export function AdminSMMPage() {
               </div>
             </div>
 
+            <div className="card bg-gradient-to-br from-purple-500 to-purple-600 text-white cursor-pointer hover:shadow-lg transition-shadow" onClick={() => { setActiveTab('fulfillment'); setCurrentPage(1); }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100">Awaiting Fulfillment</p>
+                  <p className="text-3xl font-bold mt-1">
+                    {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : stats?.awaiting_fulfillment || 0}
+                  </p>
+                </div>
+                <Package className="w-12 h-12 text-purple-100" />
+              </div>
+            </div>
+
             <div className="card bg-gradient-to-br from-yellow-500 to-yellow-600 text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -505,39 +607,27 @@ export function AdminSMMPage() {
               </div>
             </div>
 
-            <div className="card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-100">Total Revenue</p>
-                  <p className="text-3xl font-bold mt-1">
-                    {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : `₦${stats?.total_revenue.toLocaleString() || 0}`}
-                  </p>
-                </div>
-                <DollarSign className="w-12 h-12 text-purple-100" />
-              </div>
-            </div>
-
             <div className="card bg-gradient-to-br from-orange-500 to-orange-600 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-orange-100">Today's Revenue</p>
+                  <p className="text-orange-100">Total Revenue</p>
                   <p className="text-3xl font-bold mt-1">
-                    {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : `₦${stats?.today_revenue.toLocaleString() || 0}`}
+                    {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : `₦${stats?.total_revenue?.toLocaleString() || 0}`}
                   </p>
                 </div>
-                <TrendingUp className="w-12 h-12 text-orange-100" />
+                <DollarSign className="w-12 h-12 text-orange-100" />
               </div>
             </div>
 
             <div className="card bg-gradient-to-br from-teal-500 to-teal-600 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-teal-100">Active Services</p>
+                  <p className="text-teal-100">Today's Revenue</p>
                   <p className="text-3xl font-bold mt-1">
-                    {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : `${stats?.active_services || 0} / ${stats?.total_services || 0}`}
+                    {loading ? <Loader2 className="w-8 h-8 animate-spin" /> : `₦${stats?.today_revenue?.toLocaleString() || 0}`}
                   </p>
                 </div>
-                <ShoppingCart className="w-12 h-12 text-teal-100" />
+                <TrendingUp className="w-12 h-12 text-teal-100" />
               </div>
             </div>
           </div>
@@ -797,6 +887,7 @@ export function AdminSMMPage() {
                   onChange={(e) => setOrderFilters({ ...orderFilters, status: e.target.value || undefined })}
                 >
                   <option value="">All Status</option>
+                  <option value="awaiting_fulfillment">Awaiting Fulfillment</option>
                   <option value="pending">Pending</option>
                   <option value="processing">Processing</option>
                   <option value="in_progress">In Progress</option>
@@ -877,14 +968,162 @@ export function AdminSMMPage() {
                             </div>
                           )}
                         </td>
+                        <td className="py-3 px-4 flex items-center gap-2">
+                          {order.status === 'awaiting_fulfillment' && (
+                            <>
+                              <button
+                                onClick={() => { setFulfillingOrder(order); setFulfillForm({ provider_order_id: '', admin_notes: '' }); }}
+                                className="text-green-600 hover:text-green-700"
+                                title="Fulfill order"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => { setRejectingOrder(order); setRejectReason(''); }}
+                                className="text-red-600 hover:text-red-700"
+                                title="Reject order"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          {order.provider_order_id && (
+                            <button
+                              onClick={() => handleRefreshOrderStatus(order.id)}
+                              className="text-primary-600 hover:text-primary-700"
+                              title="Refresh status"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="btn-outline disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="btn-outline disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Fulfillment Queue Tab */}
+      {activeTab === 'fulfillment' && (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="card bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Fulfillment Queue</h3>
+                <p className="text-purple-100 text-sm">Orders waiting for manual fulfillment. Fulfill or reject each order.</p>
+              </div>
+              <button
+                onClick={fetchFulfillmentQueue}
+                disabled={loading}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-all flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* Queue Table */}
+          <div className="card overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+              </div>
+            ) : fulfillmentQueue.length === 0 ? (
+              <div className="text-center py-16">
+                <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium text-gray-600 mb-1">No orders awaiting fulfillment</h3>
+                <p className="text-sm text-gray-400">New orders will appear here when users place them.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Reference</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">User</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Service</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Link</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Qty</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Amount</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Cost</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Date</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fulfillmentQueue.map((order) => (
+                      <tr key={order.id} className="border-b border-gray-100 hover:bg-purple-50/30">
+                        <td className="py-3 px-4 text-sm font-mono">{order.reference}</td>
+                        <td className="py-3 px-4 text-sm">
+                          <div>
+                            <p className="font-medium">{order.user.name}</p>
+                            <p className="text-gray-500 text-xs">{order.user.email}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          <div>
+                            <p className="font-medium">{order.service.name}</p>
+                            <p className="text-gray-500 text-xs">{order.service.category}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          <a href={order.link} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline flex items-center gap-1 max-w-[200px] truncate">
+                            {order.link}
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                          </a>
+                        </td>
+                        <td className="py-3 px-4 text-sm font-medium">{order.quantity.toLocaleString()}</td>
+                        <td className="py-3 px-4 text-sm font-medium text-green-600">₦{order.amount.toLocaleString()}</td>
+                        <td className="py-3 px-4 text-sm text-gray-500">₦{parseFloat(order.cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        <td className="py-3 px-4 text-sm text-gray-500">
+                          {new Date(order.created_at).toLocaleString()}
+                        </td>
                         <td className="py-3 px-4">
-                          <button
-                            onClick={() => handleRefreshOrderStatus(order.id)}
-                            className="text-primary-600 hover:text-primary-700"
-                            title="Refresh status"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => { setFulfillingOrder(order); setFulfillForm({ provider_order_id: '', admin_notes: '' }); }}
+                              className="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Fulfill
+                            </button>
+                            <button
+                              onClick={() => { setRejectingOrder(order); setRejectReason(''); }}
+                              className="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Reject
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -921,6 +1160,63 @@ export function AdminSMMPage() {
 
       {activeTab === 'settings' && (
         <div className="space-y-5 sm:space-y-6">
+          {/* Fulfillment Mode */}
+          <div className="card !p-5 sm:!p-6">
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <Package className="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Fulfillment Mode</h2>
+                <p className="text-xs text-gray-400">Choose how SMM orders are processed</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                onClick={() => setFulfillmentMode('manual')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  fulfillmentMode === 'manual'
+                    ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
+                    : 'border-gray-200 hover:border-purple-200'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    fulfillmentMode === 'manual' ? 'border-purple-500' : 'border-gray-300'
+                  }`}>
+                    {fulfillmentMode === 'manual' && <div className="w-2 h-2 rounded-full bg-purple-500" />}
+                  </div>
+                  <span className="font-semibold text-gray-900">Manual Fulfillment</span>
+                </div>
+                <p className="text-sm text-gray-600 ml-6">
+                  Orders go to fulfillment queue. You manually process them and mark as fulfilled.
+                </p>
+              </button>
+
+              <button
+                onClick={() => setFulfillmentMode('auto')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  fulfillmentMode === 'auto'
+                    ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
+                    : 'border-gray-200 hover:border-purple-200'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    fulfillmentMode === 'auto' ? 'border-purple-500' : 'border-gray-300'
+                  }`}>
+                    {fulfillmentMode === 'auto' && <div className="w-2 h-2 rounded-full bg-purple-500" />}
+                  </div>
+                  <span className="font-semibold text-gray-900">Auto Fulfillment</span>
+                </div>
+                <p className="text-sm text-gray-600 ml-6">
+                  Orders are automatically forwarded to the provider API for instant processing.
+                </p>
+              </button>
+            </div>
+          </div>
+
           {/* Global Markup Configuration */}
           <div className="card !p-5 sm:!p-6">
             <div className="flex items-center gap-2.5 mb-5">
@@ -980,29 +1276,6 @@ export function AdminSMMPage() {
                     </div>
                   </div>
                 </div>
-
-                <div className="flex gap-3 mt-5">
-                  <button
-                    onClick={handleSaveSettings}
-                    disabled={savingSettings}
-                    className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {savingSettings ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Markup Settings'
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setMarkupValue(50)}
-                    className="px-5 py-2.5 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all"
-                  >
-                    Reset to Default
-                  </button>
-                </div>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
@@ -1021,6 +1294,30 @@ export function AdminSMMPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Save Settings Button */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {savingSettings ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save All Settings'
+              )}
+            </button>
+            <button
+              onClick={() => { setMarkupValue(50); setFulfillmentMode('manual'); }}
+              className="px-5 py-2.5 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all"
+            >
+              Reset to Defaults
+            </button>
           </div>
 
           {/* Provider Status */}
@@ -1203,6 +1500,170 @@ export function AdminSMMPage() {
                     <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                   ) : (
                     'Save Changes'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fulfill Order Modal */}
+      {fulfillingOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !processingFulfill && setFulfillingOrder(null)}>
+          <div className="bg-white rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-4 rounded-t-2xl">
+              <h2 className="text-xl font-semibold">Fulfill Order</h2>
+              <p className="text-sm text-green-100 mt-1">{fulfillingOrder.reference}</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Order Summary */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">User:</span>
+                  <span className="font-medium">{fulfillingOrder.user.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Service:</span>
+                  <span className="font-medium">{fulfillingOrder.service.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Link:</span>
+                  <a href={fulfillingOrder.link} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline truncate max-w-[200px]">
+                    {fulfillingOrder.link}
+                  </a>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Quantity:</span>
+                  <span className="font-medium">{fulfillingOrder.quantity.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Amount Paid:</span>
+                  <span className="font-bold text-green-600">₦{fulfillingOrder.amount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Provider Order ID (optional)
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g., JAP order ID if manually placed"
+                  value={fulfillForm.provider_order_id}
+                  onChange={(e) => setFulfillForm({ ...fulfillForm, provider_order_id: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Admin Notes (optional)
+                </label>
+                <textarea
+                  className="input-field"
+                  rows={2}
+                  placeholder="Any notes about this fulfillment..."
+                  value={fulfillForm.admin_notes}
+                  onChange={(e) => setFulfillForm({ ...fulfillForm, admin_notes: e.target.value })}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setFulfillingOrder(null)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={processingFulfill}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleFulfillOrder}
+                  disabled={processingFulfill}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  {processingFulfill ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Mark as Fulfilled
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Order Modal */}
+      {rejectingOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !processingFulfill && setRejectingOrder(null)}>
+          <div className="bg-white rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-gradient-to-r from-red-500 to-rose-600 text-white px-6 py-4 rounded-t-2xl">
+              <h2 className="text-xl font-semibold">Reject Order</h2>
+              <p className="text-sm text-red-100 mt-1">{rejectingOrder.reference}</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm text-red-700">
+                  This will cancel the order and refund <strong>₦{rejectingOrder.amount.toLocaleString()}</strong> to the user's wallet.
+                </p>
+              </div>
+
+              {/* Order Summary */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">User:</span>
+                  <span className="font-medium">{rejectingOrder.user.name} ({rejectingOrder.user.email})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Service:</span>
+                  <span className="font-medium">{rejectingOrder.service.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Amount:</span>
+                  <span className="font-bold text-red-600">₦{rejectingOrder.amount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Rejection Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  className="input-field"
+                  rows={3}
+                  placeholder="Why is this order being rejected?"
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setRejectingOrder(null)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={processingFulfill}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRejectOrder}
+                  disabled={processingFulfill || !rejectReason.trim()}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {processingFulfill ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4" />
+                      Reject & Refund
+                    </>
                   )}
                 </button>
               </div>

@@ -31,7 +31,8 @@ export type SmmOrderStatus =
   | 'completed'
   | 'partial'
   | 'cancelled'
-  | 'failed';
+  | 'failed'
+  | 'awaiting_fulfillment';
 
 export interface SmmOrder {
   id: number;
@@ -49,6 +50,8 @@ export interface SmmOrder {
   progress: number;
   created_at: string;
   completed_at?: string;
+  fulfilled_at?: string;
+  admin_notes?: string;
 }
 
 export function getSmmStatusColor(status: SmmOrderStatus): string {
@@ -60,8 +63,9 @@ export function getSmmStatusColor(status: SmmOrderStatus): string {
     partial: 'orange',
     cancelled: 'red',
     failed: 'red',
+    awaiting_fulfillment: 'purple',
   };
-  return colors[status];
+  return colors[status] || 'gray';
 }
 
 export function getSmmStatusLabel(status: SmmOrderStatus): string {
@@ -73,6 +77,7 @@ export function getSmmStatusLabel(status: SmmOrderStatus): string {
     partial: 'Partial',
     cancelled: 'Cancelled',
     failed: 'Failed',
+    awaiting_fulfillment: 'Awaiting Fulfillment',
   };
-  return labels[status];
+  return labels[status] || status;
 }

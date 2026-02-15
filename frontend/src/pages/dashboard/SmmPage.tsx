@@ -2,19 +2,14 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   Search,
-  Filter,
   ShoppingCart,
   Loader2,
   ArrowRight,
   Clock,
   XCircle,
   RefreshCw,
-  Sparkles,
   Zap,
-  Heart,
-  MessageCircle,
-  Play,
-  Users,
+  ChevronDown,
 } from 'lucide-react';
 import { smmService, getErrorMessage } from '@/services';
 import type { SmmCategory, SmmService, SmmOrder } from '@/types/smm';
@@ -50,7 +45,6 @@ export function SmmPage() {
   });
 
   // UI state
-  const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingServices, setLoadingServices] = useState(false);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -72,16 +66,13 @@ export function SmmPage() {
   }, [activeView, selectedCategory, debouncedSearch, currentPage, orderFilter]);
 
   const fetchCategories = async () => {
-    setLoadingCategories(true);
     try {
       const response = await smmService.getCategories();
       if (response.success) {
         setCategories(response.data);
       }
     } catch (error) {
-      toast.error(getErrorMessage(error));
-    } finally {
-      setLoadingCategories(false);
+      console.error('Failed to fetch categories:', error);
     }
   };
 
@@ -245,14 +236,7 @@ export function SmmPage() {
     return 'general';
   };
 
-  const getCategoryIcon = (categoryName: string) => {
-    const name = categoryName.toLowerCase();
-    if (name.includes('like') || name.includes('heart')) return Heart;
-    if (name.includes('follower') || name.includes('subscriber')) return Users;
-    if (name.includes('view') || name.includes('play')) return Play;
-    if (name.includes('comment')) return MessageCircle;
-    return Sparkles;
-  };
+  const totalServicesCount = categories.reduce((sum, cat) => sum + cat.services_count, 0);
 
   return (
     <div className="space-y-5 sm:space-y-6 px-1 sm:px-0 max-w-7xl mx-auto">
@@ -303,83 +287,39 @@ export function SmmPage() {
       {/* Services View */}
       {activeView === 'services' && (
         <div className="space-y-5">
-          {/* Search */}
-          <div className="card !p-4 sm:!p-5">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search services..."
-              loading={loadingServices}
-              className="!border-gray-200"
-            />
-          </div>
-
-          {/* Categories */}
-          <div className="card !p-5 sm:!p-6">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="p-2 bg-purple-50 rounded-lg">
-                <Filter className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-gray-900">Categories</h2>
-                <p className="text-xs text-gray-400">Select a category to filter services</p>
-              </div>
+          {/* Filter Bar */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Category Dropdown */}
+            <div className="relative w-full sm:w-72 flex-shrink-0">
+              <select
+                value={selectedCategory ?? ''}
+                onChange={(e) => setSelectedCategory(e.target.value === '' ? null : Number(e.target.value))}
+                className={`w-full appearance-none px-4 py-3 pr-10 border-2 rounded-xl bg-white text-sm font-medium transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                  selectedCategory !== null
+                    ? 'border-purple-400 text-purple-700'
+                    : 'border-gray-200 text-gray-700'
+                }`}
+              >
+                <option value="">All Services ({totalServicesCount.toLocaleString()})</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} ({category.services_count.toLocaleString()})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
 
-            {loadingCategories ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
-                <button
-                  onClick={() => setSelectedCategory(null)}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    selectedCategory === null
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-150 bg-white hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <div className={`p-2 rounded-lg ${selectedCategory === null ? 'bg-purple-100' : 'bg-gray-100'}`}>
-                      <Sparkles className={`w-5 h-5 ${selectedCategory === null ? 'text-purple-600' : 'text-gray-500'}`} />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">All</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {categories.reduce((sum, cat) => sum + cat.services_count, 0)}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-
-                {categories.map((category) => {
-                  const Icon = getCategoryIcon(category.name);
-                  const isSelected = selectedCategory === category.id;
-                  return (
-                    <button
-                      key={category.id}
-                      onClick={() => setSelectedCategory(category.id)}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        isSelected
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-150 bg-white hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center gap-2 text-center">
-                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-purple-100' : 'bg-gray-100'}`}>
-                          <Icon className={`w-5 h-5 ${isSelected ? 'text-purple-600' : 'text-gray-500'}`} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm line-clamp-2">{category.name}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{category.services_count}</p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            {/* Search */}
+            <div className="flex-1">
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search services..."
+                loading={loadingServices}
+                className="!border-gray-200"
+              />
+            </div>
           </div>
 
           {/* Services Grid */}

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Setting;
 use App\Models\SmmCategory;
 use App\Models\SmmService;
 use App\Models\SmmOrder;
@@ -214,6 +215,39 @@ class SmmAdminController extends Controller
             'success' => true,
             'message' => 'Category updated successfully',
             'data' => $category,
+        ]);
+    }
+
+    /**
+     * Get SMM settings
+     */
+    public function getSettings(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'markup_percentage' => (float) Setting::getValue('smm_default_markup', config('smm.default_markup', 50)),
+            ],
+        ]);
+    }
+
+    /**
+     * Update SMM settings
+     */
+    public function updateSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'markup_percentage' => ['required', 'numeric', 'min:0', 'max:500'],
+        ]);
+
+        Setting::setValue('smm_default_markup', $validated['markup_percentage'], 'float', 'smm', 'Default markup percentage for SMM services');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'SMM settings updated successfully',
+            'data' => [
+                'markup_percentage' => (float) $validated['markup_percentage'],
+            ],
         ]);
     }
 }

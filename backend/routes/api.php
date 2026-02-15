@@ -198,6 +198,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/categories', [SmmAdminController::class, 'getCategories']);
             Route::put('/categories/{category}', [SmmAdminController::class, 'updateCategory']);
             Route::get('/check-balances', [SmmAdminController::class, 'checkBalances']);
+            Route::get('/settings', [SmmAdminController::class, 'getSettings']);
+            Route::put('/settings', [SmmAdminController::class, 'updateSettings']);
         });
 
         // Payment Gateway Management

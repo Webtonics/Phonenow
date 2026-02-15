@@ -7,6 +7,7 @@ use App\Models\SmmCategory;
 use App\Models\SmmService;
 use App\Models\SmmOrder;
 use App\Models\User;
+use App\Models\Setting;
 use App\Services\SmmProviders\JapProvider;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -200,7 +201,7 @@ class SmmManager
      */
     protected function calculatePriceWithMarkup(float $cost): float
     {
-        $markup = config('smm.default_markup', 50); // 50% default markup
+        $markup = (float) Setting::getValue('smm_default_markup', config('smm.default_markup', 50));
         $price = $cost * (1 + ($markup / 100));
 
         // Convert USD to NGN (assuming cost is in USD)

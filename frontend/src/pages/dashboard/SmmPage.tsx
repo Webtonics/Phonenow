@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from '@/stores/AuthContext';
 import {
   Search,
   Filter,
-  TrendingUp,
   ShoppingCart,
   Loader2,
   ArrowRight,
@@ -12,8 +10,6 @@ import {
   XCircle,
   RefreshCw,
   Sparkles,
-  Eye,
-  EyeOff,
   Zap,
   Heart,
   MessageCircle,
@@ -30,7 +26,6 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { usePagination } from '@/hooks/usePagination';
 
 export function SmmPage() {
-  const { user } = useAuth();
   const [activeView, setActiveView] = useState<'services' | 'orders'>('services');
 
   // Services state
@@ -61,8 +56,6 @@ export function SmmPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showBalance, setShowBalance] = useState(true);
-
   const debouncedSearch = useDebounce(searchQuery, 300);
   const { currentPage, setTotalPages, nextPage, prevPage, hasNextPage, hasPrevPage } = usePagination();
 
@@ -266,8 +259,8 @@ export function SmmPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">SMM Services</h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Boost your social media presence</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Boost Your Socials</h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Grow your followers, likes, views & more</p>
         </div>
         <button
           onClick={() => activeView === 'services' ? fetchServices() : fetchOrders()}
@@ -275,36 +268,6 @@ export function SmmPage() {
         >
           <RefreshCw className="w-4 h-4 text-gray-600" />
         </button>
-      </div>
-
-      {/* Balance Card */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-purple-700 via-purple-600 to-pink-500 rounded-2xl p-5 sm:p-7 text-white shadow-lg">
-        <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-white/10 blur-2xl" />
-        <div className="absolute -bottom-14 -left-14 w-44 h-44 rounded-full bg-white/5 blur-3xl" />
-
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-white/15 rounded-lg backdrop-blur-sm">
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <span className="text-sm font-medium text-white/75">Available Balance</span>
-            </div>
-            <button
-              onClick={() => setShowBalance(!showBalance)}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-            >
-              {showBalance ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-            </button>
-          </div>
-
-          <p className="text-3xl sm:text-4xl font-bold tracking-tight">
-            {showBalance ? `₦${user?.balance?.toLocaleString() || '0.00'}` : '₦ • • • • •'}
-          </p>
-          <p className="text-[11px] sm:text-xs text-white/50 mt-1.5 font-medium">
-            Fund your wallet to start ordering services
-          </p>
-        </div>
       </div>
 
       {/* View Toggle */}
@@ -538,7 +501,7 @@ export function SmmPage() {
             <div className="card !p-12 text-center">
               <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No orders yet</h3>
-              <p className="text-sm text-gray-500 mb-6">Start by browsing our services</p>
+              <p className="text-sm text-gray-500 mb-6">Place your first order to get started</p>
               <button
                 onClick={() => setActiveView('services')}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium rounded-xl hover:shadow-lg transition-all"

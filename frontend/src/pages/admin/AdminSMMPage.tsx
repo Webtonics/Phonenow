@@ -144,6 +144,10 @@ export function AdminSMMPage() {
     is_active: true,
   });
 
+  // Settings state
+  const [markupValue, setMarkupValue] = useState<number>(50);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   useEffect(() => {
     if (activeTab === 'dashboard') {
       fetchDashboard();
@@ -153,6 +157,9 @@ export function AdminSMMPage() {
       fetchCategories();
     } else if (activeTab === 'orders') {
       fetchOrders();
+    } else if (activeTab === 'settings') {
+      fetchSmmSettings();
+      fetchProviderBalances();
     }
   }, [activeTab, currentPage]);
 
@@ -246,6 +253,31 @@ export function AdminSMMPage() {
     } catch (error) {
       console.error('Failed to fetch provider balances:', error);
       setProviderBalances([]);
+    }
+  };
+
+  const fetchSmmSettings = async () => {
+    try {
+      const response = await adminSmmService.getSettings();
+      if (response.success) {
+        setMarkupValue(response.data.markup_percentage);
+      }
+    } catch (error) {
+      console.error('Failed to fetch SMM settings:', error);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const response = await adminSmmService.updateSettings({ markup_percentage: markupValue });
+      if (response.success) {
+        toast.success('SMM settings updated successfully');
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -914,8 +946,10 @@ export function AdminSMMPage() {
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                         placeholder="e.g., 50"
                         min="0"
+                        max="500"
                         step="1"
-                        defaultValue="50"
+                        value={markupValue}
+                        onChange={(e) => setMarkupValue(parseFloat(e.target.value) || 0)}
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">%</span>
                     </div>
@@ -935,12 +969,12 @@ export function AdminSMMPage() {
                           <span className="font-medium">₦1,000</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Markup (50%):</span>
-                          <span className="font-medium">₦500</span>
+                          <span className="text-gray-600">Markup ({markupValue}%):</span>
+                          <span className="font-medium">₦{(1000 * markupValue / 100).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between border-t pt-1.5">
                           <span className="text-gray-900 font-semibold">Your Price:</span>
-                          <span className="font-bold text-purple-600">₦1,500</span>
+                          <span className="font-bold text-purple-600">₦{(1000 * (1 + markupValue / 100)).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
@@ -949,10 +983,11 @@ export function AdminSMMPage() {
 
                 <div className="flex gap-3 mt-5">
                   <button
-                    disabled={saving}
+                    onClick={handleSaveSettings}
+                    disabled={savingSettings}
                     className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    {saving ? (
+                    {savingSettings ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Saving...
@@ -961,7 +996,10 @@ export function AdminSMMPage() {
                       'Save Markup Settings'
                     )}
                   </button>
-                  <button className="px-5 py-2.5 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all">
+                  <button
+                    onClick={() => setMarkupValue(50)}
+                    className="px-5 py-2.5 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all"
+                  >
                     Reset to Default
                   </button>
                 </div>

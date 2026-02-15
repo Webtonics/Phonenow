@@ -111,4 +111,20 @@ export const adminSmmService = {
     const response = await api.get<ApiResponse<any[]>>('/admin/smm/check-balances');
     return response.data;
   },
+
+  /**
+   * Get SMM settings
+   */
+  getSettings: async (): Promise<ApiResponse<{ markup_percentage: number }>> => {
+    const response = await api.get<ApiResponse<{ markup_percentage: number }>>('/admin/smm/settings');
+    return response.data;
+  },
+
+  /**
+   * Update SMM settings
+   */
+  updateSettings: async (data: { markup_percentage: number }): Promise<ApiResponse<{ markup_percentage: number }>> => {
+    const response = await api.put<ApiResponse<{ markup_percentage: number }>>('/admin/smm/settings', data);
+    return response.data;
+  },
 };

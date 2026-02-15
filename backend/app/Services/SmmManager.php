@@ -69,6 +69,14 @@ class SmmManager
             ];
         }
 
+        // Fetch fresh exchange rate before syncing prices
+        try {
+            app(ExchangeRateService::class)->updateExchangeRate();
+            Log::info('Exchange rate refreshed before SMM sync');
+        } catch (\Exception $e) {
+            Log::warning('Could not refresh exchange rate before sync, using last known rate: ' . $e->getMessage());
+        }
+
         foreach ($this->providers as $identifier => $provider) {
             try {
                 $services = $provider->getServices();
@@ -208,7 +216,8 @@ class SmmManager
         $exchangeRate = app(ExchangeRateService::class)->getUsdToNgnRate();
         $priceInNgn = $price * $exchangeRate;
 
-        return round($priceInNgn, 2);
+        // Cap at 99,999,999.99 to fit decimal(10,2) column
+        return min(round($priceInNgn, 2), 99999999.99);
     }
 
     /**

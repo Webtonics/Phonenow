@@ -217,23 +217,24 @@ export function SmmPage() {
     }
   };
 
-  const getServiceIcon = (serviceName: string) => {
-    const name = serviceName.toLowerCase();
-    if (name.includes('instagram')) return 'instagram';
-    if (name.includes('facebook')) return 'facebook';
-    if (name.includes('twitter') || name.includes('x ')) return 'twitter';
-    if (name.includes('youtube')) return 'youtube';
-    if (name.includes('tiktok')) return 'tiktok';
-    if (name.includes('telegram')) return 'telegram';
-    if (name.includes('whatsapp')) return 'whatsapp';
-    if (name.includes('linkedin')) return 'linkedin';
-    if (name.includes('pinterest')) return 'pinterest';
-    if (name.includes('snapchat')) return 'snapchat';
-    if (name.includes('reddit')) return 'reddit';
-    if (name.includes('discord')) return 'discord';
-    if (name.includes('twitch')) return 'twitch';
-    if (name.includes('spotify')) return 'spotify';
-    return 'general';
+  const getServiceIcon = (serviceName: string, categoryName?: string) => {
+    const text = (serviceName + ' ' + (categoryName || '')).toLowerCase();
+    if (text.includes('instagram') || text.includes('threads')) return 'instagram';
+    if (text.includes('facebook')) return 'facebook';
+    if (text.includes('twitter') || text.includes(' x ')) return 'twitter';
+    if (text.includes('youtube')) return 'youtube';
+    if (text.includes('tiktok')) return 'tiktok';
+    if (text.includes('telegram')) return 'telegram';
+    if (text.includes('whatsapp')) return 'whatsapp';
+    if (text.includes('linkedin')) return 'linkedin';
+    if (text.includes('pinterest')) return 'pinterest';
+    if (text.includes('snapchat')) return 'snapchat';
+    if (text.includes('reddit')) return 'reddit';
+    if (text.includes('discord')) return 'discord';
+    if (text.includes('twitch')) return 'twitch';
+    if (text.includes('spotify')) return 'spotify';
+    if (text.includes('google')) return 'google';
+    return '';
   };
 
   const totalServicesCount = categories.reduce((sum, cat) => sum + cat.services_count, 0);
@@ -348,7 +349,7 @@ export function SmmPage() {
                   {/* Service Header */}
                   <div className="flex items-start gap-3.5 mb-4">
                     <div className="flex-shrink-0 p-2.5 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
-                      <ServiceIcon service={getServiceIcon(service.name)} size={32} />
+                      <ServiceIcon service={getServiceIcon(service.name, service.category?.name)} size={32} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-purple-600 transition-colors text-sm">
@@ -363,13 +364,13 @@ export function SmmPage() {
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-600 text-xs">Price per 1K</span>
                       <span className="font-bold text-purple-600">
-                        ₦{service.price_per_1000.toLocaleString()}
+                        ₦{Number(service.price_per_1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-600 text-xs">Min / Max</span>
                       <span className="font-medium text-gray-900 text-xs">
-                        {service.min_order.toLocaleString()} - {service.max_order.toLocaleString()}
+                        {Math.round(service.min_order).toLocaleString()} - {Math.round(service.max_order).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -545,7 +546,7 @@ export function SmmPage() {
               <div className="relative z-10">
                 <div className="flex items-center gap-4 mb-2">
                   <div className="p-2.5 bg-white/15 rounded-xl backdrop-blur-sm">
-                    <ServiceIcon service={getServiceIcon(selectedService.name)} size={40} colored={false} className="text-white" />
+                    <ServiceIcon service={getServiceIcon(selectedService.name, selectedService.category?.name)} size={40} colored={false} className="text-white" />
                   </div>
                   <div className="flex-1">
                     <h2 className="text-xl font-bold">{selectedService.name}</h2>

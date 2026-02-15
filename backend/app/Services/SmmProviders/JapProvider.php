@@ -67,15 +67,15 @@ class JapProvider extends AbstractSmmProvider implements SmmProviderInterface
         return $services->map(function ($service) {
             return [
                 'provider_service_id' => (string) $service['service'],
-                'name' => $service['name'],
+                'name' => html_entity_decode($service['name'], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'type' => $this->extractServiceType($service['name']),
-                'category' => $service['category'] ?? 'Unknown',
+                'category' => html_entity_decode($service['category'] ?? 'Unknown', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'rate' => (float) $service['rate'], // Cost per 1000
                 'min' => (int) $service['min'],
                 'max' => (int) $service['max'],
                 'refill' => (bool) ($service['refill'] ?? false),
                 'cancel' => (bool) ($service['cancel'] ?? false),
-                'description' => $service['description'] ?? '',
+                'description' => html_entity_decode($service['description'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
             ];
         });
     }

@@ -102,8 +102,19 @@ export const ServiceIcon = ({
   colored = true
 }: ServiceIconProps) => {
   const normalizedService = normalizeServiceName(service);
-  const Icon = SERVICE_ICONS[normalizedService];
+  const Icon = normalizedService ? SERVICE_ICONS[normalizedService] : undefined;
   const color = colored ? SERVICE_COLORS[normalizedService] : 'currentColor';
+
+  // If no service name provided, go straight to fallback
+  if (!normalizedService) {
+    return (
+      <HiGlobeAlt
+        size={size}
+        color={colored ? 'var(--color-primary-500)' : 'currentColor'}
+        className={className}
+      />
+    );
+  }
 
   // State to track which image source we are trying
   // 0 = Simple Icons CDN

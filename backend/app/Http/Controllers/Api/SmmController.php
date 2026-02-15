@@ -63,7 +63,13 @@ class SmmController extends Controller
         }
 
         if (isset($validated['search'])) {
-            $query->where('name', 'like', '%' . $validated['search'] . '%');
+            $search = $validated['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhereHas('category', function ($cq) use ($search) {
+                      $cq->where('name', 'like', '%' . $search . '%');
+                  });
+            });
         }
 
         $services = $query->orderBy('sort_order')

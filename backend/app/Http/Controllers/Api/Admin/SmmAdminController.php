@@ -225,11 +225,18 @@ class SmmAdminController extends Controller
      */
     public function getSettings(): JsonResponse
     {
+        $defaultTiers = [
+            ['threshold' => 0, 'markup' => 150],
+            ['threshold' => 10000, 'markup' => 80],
+            ['threshold' => 100000, 'markup' => 30],
+        ];
+
         return response()->json([
             'success' => true,
             'data' => [
                 'markup_percentage' => (float) Setting::getValue('smm_default_markup', config('smm.default_markup', 50)),
                 'fulfillment_mode' => Setting::getValue('smm_fulfillment_mode', 'manual'),
+                'markup_tiers' => json_decode(Setting::getValue('smm_markup_tiers', '[]') ?? '[]', true) ?: $defaultTiers,
             ],
         ]);
     }
@@ -242,6 +249,9 @@ class SmmAdminController extends Controller
         $validated = $request->validate([
             'markup_percentage' => ['sometimes', 'numeric', 'min:0', 'max:500'],
             'fulfillment_mode' => ['sometimes', 'string', 'in:auto,manual'],
+            'markup_tiers' => ['sometimes', 'array', 'min:1'],
+            'markup_tiers.*.threshold' => ['required_with:markup_tiers', 'numeric', 'min:0'],
+            'markup_tiers.*.markup' => ['required_with:markup_tiers', 'numeric', 'min:0', 'max:500'],
         ]);
 
         if (isset($validated['markup_percentage'])) {
@@ -252,12 +262,23 @@ class SmmAdminController extends Controller
             Setting::setValue('smm_fulfillment_mode', $validated['fulfillment_mode'], 'string', 'smm', 'SMM order fulfillment mode (auto or manual)');
         }
 
+        if (isset($validated['markup_tiers'])) {
+            Setting::setValue('smm_markup_tiers', json_encode($validated['markup_tiers']), 'string', 'smm', 'Tiered markup configuration for SMM services');
+        }
+
+        $defaultTiers = [
+            ['threshold' => 0, 'markup' => 150],
+            ['threshold' => 10000, 'markup' => 80],
+            ['threshold' => 100000, 'markup' => 30],
+        ];
+
         return response()->json([
             'success' => true,
             'message' => 'SMM settings updated successfully',
             'data' => [
                 'markup_percentage' => (float) Setting::getValue('smm_default_markup', config('smm.default_markup', 50)),
                 'fulfillment_mode' => Setting::getValue('smm_fulfillment_mode', 'manual'),
+                'markup_tiers' => json_decode(Setting::getValue('smm_markup_tiers', '[]') ?? '[]', true) ?: $defaultTiers,
             ],
         ]);
     }

@@ -15,6 +15,8 @@ import {
   Edit2,
   ExternalLink,
   Package,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { adminSmmService, getErrorMessage } from '@/services';
 import type { SmmSettings } from '@/services/admin-smm.service';
@@ -151,7 +153,11 @@ export function AdminSMMPage() {
   });
 
   // Settings state
-  const [markupValue, setMarkupValue] = useState<number>(50);
+  const [markupTiers, setMarkupTiers] = useState<Array<{ threshold: number; markup: number }>>([
+    { threshold: 0, markup: 150 },
+    { threshold: 10000, markup: 80 },
+    { threshold: 100000, markup: 30 },
+  ]);
   const [fulfillmentMode, setFulfillmentMode] = useState<'auto' | 'manual'>('manual');
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -293,8 +299,10 @@ export function AdminSMMPage() {
     try {
       const response = await adminSmmService.getSettings();
       if (response.success) {
-        setMarkupValue(response.data.markup_percentage);
         setFulfillmentMode(response.data.fulfillment_mode);
+        if (response.data.markup_tiers && response.data.markup_tiers.length > 0) {
+          setMarkupTiers(response.data.markup_tiers);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch SMM settings:', error);
@@ -302,14 +310,24 @@ export function AdminSMMPage() {
   };
 
   const handleSaveSettings = async () => {
+    // Validate tiers before saving
+    const sortedTiers = [...markupTiers].sort((a, b) => a.threshold - b.threshold);
+    if (sortedTiers[0]?.threshold !== 0) {
+      toast.error('First tier must start at ₦0');
+      return;
+    }
+
     setSavingSettings(true);
     try {
       const response = await adminSmmService.updateSettings({
-        markup_percentage: markupValue,
+        markup_tiers: sortedTiers,
         fulfillment_mode: fulfillmentMode,
       });
       if (response.success) {
         toast.success('SMM settings updated successfully');
+        if (response.data.markup_tiers) {
+          setMarkupTiers(response.data.markup_tiers);
+        }
       }
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -1217,64 +1235,126 @@ export function AdminSMMPage() {
             </div>
           </div>
 
-          {/* Global Markup Configuration */}
+          {/* Tiered Markup Configuration */}
           <div className="card !p-5 sm:!p-6">
             <div className="flex items-center gap-2.5 mb-5">
               <div className="p-2 bg-purple-50 rounded-lg">
                 <Settings className="w-4 h-4 text-purple-600" />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-gray-900">Pricing Configuration</h2>
-                <p className="text-xs text-gray-400">Set default markup for all SMM services</p>
+                <h2 className="text-base font-semibold text-gray-900">Tiered Pricing</h2>
+                <p className="text-xs text-gray-400">Different markup % based on service cost (in NGN per 1K)</p>
               </div>
             </div>
 
             <div className="space-y-4">
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-100 rounded-xl p-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Default Markup Percentage
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                        placeholder="e.g., 50"
-                        min="0"
-                        max="500"
-                        step="1"
-                        value={markupValue}
-                        onChange={(e) => setMarkupValue(parseFloat(e.target.value) || 0)}
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">%</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1.5">
-                      This markup is applied to provider cost when syncing services
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Example Calculation
-                    </label>
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <div className="space-y-1.5 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Provider Cost (per 1K):</span>
-                          <span className="font-medium">₦1,000</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Markup ({markupValue}%):</span>
-                          <span className="font-medium">₦{(1000 * markupValue / 100).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between border-t pt-1.5">
-                          <span className="text-gray-900 font-semibold">Your Price:</span>
-                          <span className="font-bold text-purple-600">₦{(1000 * (1 + markupValue / 100)).toLocaleString()}</span>
+              {/* Tiers List */}
+              <div className="space-y-3">
+                {[...markupTiers]
+                  .sort((a, b) => a.threshold - b.threshold)
+                  .map((tier, index) => (
+                  <div key={index} className="flex items-center gap-3 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100 rounded-xl p-4">
+                    <div className="flex-1 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {index === 0 ? 'Base Tier (from ₦0)' : 'Cost Above (₦)'}
+                        </label>
+                        {index === 0 ? (
+                          <div className="px-3 py-2.5 bg-gray-100 rounded-lg text-sm text-gray-500 font-medium">₦0 (base)</div>
+                        ) : (
+                          <input
+                            type="number"
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                            value={tier.threshold}
+                            min="0"
+                            onChange={(e) => {
+                              const updated = [...markupTiers];
+                              const sortedIndex = updated.findIndex(t => t === tier);
+                              if (sortedIndex >= 0) {
+                                updated[sortedIndex] = { ...tier, threshold: parseFloat(e.target.value) || 0 };
+                                setMarkupTiers(updated);
+                              }
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Markup %</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            className="w-full px-3 py-2.5 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                            value={tier.markup}
+                            min="0"
+                            max="500"
+                            onChange={(e) => {
+                              const updated = [...markupTiers];
+                              const sortedIndex = updated.findIndex(t => t === tier);
+                              if (sortedIndex >= 0) {
+                                updated[sortedIndex] = { ...tier, markup: parseFloat(e.target.value) || 0 };
+                                setMarkupTiers(updated);
+                              }
+                            }}
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
                         </div>
                       </div>
                     </div>
+                    {index > 0 && (
+                      <button
+                        onClick={() => setMarkupTiers(markupTiers.filter((_, i) => i !== markupTiers.indexOf(tier)))}
+                        className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove tier"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {index === 0 && <div className="w-8" />}
                   </div>
+                ))}
+              </div>
+
+              {/* Add Tier Button */}
+              <button
+                onClick={() => {
+                  const maxThreshold = Math.max(...markupTiers.map(t => t.threshold));
+                  setMarkupTiers([...markupTiers, { threshold: maxThreshold + 50000, markup: 20 }]);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-purple-300 rounded-xl text-purple-600 hover:bg-purple-50 font-medium text-sm transition-all w-full justify-center"
+              >
+                <Plus className="w-4 h-4" />
+                Add Tier
+              </button>
+
+              {/* Preview */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-medium text-gray-600 mb-3">Preview — how markup applies at different costs</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[1000, 50000, 200000].map((cost) => {
+                    const sorted = [...markupTiers].sort((a, b) => a.threshold - b.threshold);
+                    let markup = sorted[0]?.markup ?? 0;
+                    for (const tier of sorted) {
+                      if (cost >= tier.threshold) markup = tier.markup;
+                      else break;
+                    }
+                    const price = cost * (1 + markup / 100);
+                    return (
+                      <div key={cost} className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Cost/1K:</span>
+                          <span className="font-medium">₦{cost.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Markup:</span>
+                          <span className="font-medium text-orange-600">{markup}%</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-1">
+                          <span className="text-gray-900 font-semibold">Price:</span>
+                          <span className="font-bold text-purple-600">₦{price.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1286,9 +1366,9 @@ export function AdminSMMPage() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-blue-900 mb-1">How Markup Works</p>
+                    <p className="text-sm font-medium text-blue-900 mb-1">How Tiered Markup Works</p>
                     <p className="text-sm text-blue-700">
-                      When you sync services, the system automatically calculates your selling price by adding the markup percentage to the provider's cost. You can manually adjust individual service prices in the Services tab.
+                      When services are synced, the system converts the provider cost to NGN and applies the markup % from the matching tier. Cheaper services get higher markups, expensive services get lower markups. You can still manually override individual prices in the Services tab.
                     </p>
                   </div>
                 </div>
@@ -1313,7 +1393,7 @@ export function AdminSMMPage() {
               )}
             </button>
             <button
-              onClick={() => { setMarkupValue(50); setFulfillmentMode('manual'); }}
+              onClick={() => { setMarkupTiers([{ threshold: 0, markup: 150 }, { threshold: 10000, markup: 80 }, { threshold: 100000, markup: 30 }]); setFulfillmentMode('manual'); }}
               className="px-5 py-2.5 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all"
             >
               Reset to Defaults

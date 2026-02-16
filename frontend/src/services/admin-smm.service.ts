@@ -5,9 +5,15 @@ import {
   SmmOrderStatus,
 } from '@/types/smm';
 
+export interface MarkupTier {
+  threshold: number;
+  markup: number;
+}
+
 export interface SmmSettings {
   markup_percentage: number;
   fulfillment_mode: 'auto' | 'manual';
+  markup_tiers: MarkupTier[];
 }
 
 export const adminSmmService = {

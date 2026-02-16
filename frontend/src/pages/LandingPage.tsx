@@ -78,6 +78,16 @@ const serviceCategories = [
   },
 ];
 
+// Platform services for SMM section
+const smmPlatforms = [
+  { name: 'Instagram', items: ['Followers', 'Likes', 'Views', 'Comments'] },
+  { name: 'TikTok', items: ['Followers', 'Likes', 'Views', 'Shares'] },
+  { name: 'YouTube', items: ['Subscribers', 'Views', 'Likes', 'Watch Hours'] },
+  { name: 'Facebook', items: ['Page Likes', 'Followers', 'Post Likes', 'Views'] },
+  { name: 'Twitter', items: ['Followers', 'Likes', 'Retweets', 'Views'] },
+  { name: 'Telegram', items: ['Members', 'Post Views', 'Reactions', 'Comments'] },
+];
+
 // FAQ data
 const faqs = [
   {
@@ -107,6 +117,18 @@ const faqs = [
   {
     question: 'What is eSIM and how does it work?',
     answer: 'eSIM is a digital SIM that lets you activate a mobile data plan without a physical SIM card. Simply purchase an eSIM plan for your destination country, scan the QR code with your phone, and enjoy instant mobile data. Perfect for international travel.',
+  },
+  {
+    question: 'What are SMM services?',
+    answer: 'SMM (Social Media Marketing) services help you grow your social media presence by increasing followers, likes, views, comments, and engagement on platforms like Instagram, TikTok, YouTube, Facebook, Twitter, and Telegram. Simply choose a service, enter your profile link, and watch your numbers grow.',
+  },
+  {
+    question: 'Are the SMM followers and likes real?',
+    answer: 'We work with premium providers to deliver high-quality engagement. Results vary by service — some offer real, active users while others provide high-retention accounts. Each service description clearly states what to expect. Many services also include refill guarantees if numbers drop.',
+  },
+  {
+    question: 'Do you offer VPN services?',
+    answer: 'Yes! We offer premium VPN plans you can purchase directly from your dashboard and pay in Naira. Browse securely with servers in 50+ countries, enjoy zero-log privacy, and protect all your devices — phone, laptop, and tablet.',
   },
   {
     question: 'How fast will I receive my verification code?',
@@ -237,17 +259,18 @@ export const LandingPage = () => {
 
             {/* Main headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold mb-6 leading-tight tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-              High Quality Online
+              Your All-in-One
               <span className="block mt-2" style={{ color: 'var(--color-primary-500)' }}>
-                SMS Verification
+                Digital Services Hub
               </span>
             </h1>
 
             {/* Subheadline */}
             <p className="text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Get temporary phone numbers from <span className="font-semibold text-gray-900">100+ countries</span> in seconds.
-              Verify accounts on WhatsApp, Telegram, Google, and <span className="font-semibold text-gray-900">500+ services</span>.
-              {' '}<span className="font-semibold text-gray-900">Full refund if it doesn't work.</span>
+              <span className="font-semibold text-gray-900">SMS verification</span> from 100+ countries.
+              {' '}<span className="font-semibold text-gray-900">Social media growth</span> for Instagram, TikTok, YouTube & more.
+              {' '}<span className="font-semibold text-gray-900">eSIM data</span> & <span className="font-semibold text-gray-900">VPN</span> for global connectivity.
+              {' '}All in one platform, all in Naira.
             </p>
 
             {/* CTA buttons */}
@@ -257,7 +280,7 @@ export const LandingPage = () => {
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 text-white font-semibold rounded-xl transition-all hover:opacity-90 hover:scale-[1.02] shadow-lg text-lg"
                 style={{ backgroundColor: 'var(--color-primary-500)' }}
               >
-                Start Verifying Now
+                Get Started Free
                 <ArrowRight className="w-5 h-5" />
               </Link>
               <a
@@ -281,7 +304,7 @@ export const LandingPage = () => {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-success-500" />
-                <span>Instant SMS delivery</span>
+                <span>Instant delivery</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-success-500" />
@@ -324,11 +347,11 @@ export const LandingPage = () => {
               Why TonicsTools
             </span>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-              The most reliable way to
-              <span style={{ color: 'var(--color-primary-500)' }}> verify online</span>
+              Everything you need to
+              <span style={{ color: 'var(--color-primary-500)' }}> grow online</span>
             </h2>
             <p className="text-lg text-gray-600">
-              We've built Nigeria's most trusted phone verification platform. Here's why thousands of users choose TonicsTools every day.
+              From phone verification to social media growth and global connectivity — here's why thousands of users choose TonicsTools every day.
             </p>
           </div>
 
@@ -442,13 +465,14 @@ export const LandingPage = () => {
               className="inline-block px-4 py-1.5 rounded-full text-sm font-medium mb-4"
               style={{ backgroundColor: 'var(--color-accent-100)', color: 'var(--color-accent-700)' }}
             >
-              500+ Services
+
+              SMS Verification
             </span>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
               Verify on <span style={{ color: 'var(--color-primary-500)' }}>any platform</span>
             </h2>
             <p className="text-lg text-gray-600">
-              From social media to banking, we've got numbers that work with every service that requires SMS verification.
+              Get temporary phone numbers from 100+ countries. Works with every service that requires SMS verification — from social media to banking.
             </p>
           </div>
 
@@ -514,7 +538,7 @@ export const LandingPage = () => {
               Get verified in <span style={{ color: 'var(--color-primary-500)' }}>3 easy steps</span>
             </h2>
             <p className="text-lg text-gray-600">
-              No complicated setup. No technical knowledge needed. Just pick a number and get your code in seconds.
+              No complicated setup. No technical knowledge needed. Pick a service and get results in seconds.
             </p>
           </div>
 
@@ -678,16 +702,16 @@ export const LandingPage = () => {
                 Influencers & Marketers
               </h3>
               <p className="text-gray-600 text-sm mb-4 leading-relaxed">
-                Manage multiple social media accounts without using your personal number.
+                Grow your audience with SMM services and manage multiple accounts with phone verification.
               </p>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-success-500 shrink-0" />
-                  Multiple account management
+                  Boost followers & engagement
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-success-500 shrink-0" />
-                  Social media verification
+                  Multi-account verification
                 </li>
               </ul>
             </div>
@@ -794,9 +818,9 @@ export const LandingPage = () => {
             </div>
             <div className="text-center">
               <div className="text-4xl sm:text-5xl font-bold mb-2" style={{ color: 'var(--color-accent-400)' }}>
-                500+
+                5K+
               </div>
-              <div className="text-gray-400 text-sm sm:text-base">Supported Services</div>
+              <div className="text-gray-400 text-sm sm:text-base">Services Available</div>
             </div>
             <div className="text-center">
               <div className="text-4xl sm:text-5xl font-bold mb-2" style={{ color: 'var(--color-success-400)' }}>
@@ -814,8 +838,84 @@ export const LandingPage = () => {
         </div>
       </section>
 
-      {/* eSIM Teaser Section */}
+      {/* SMM Section */}
       <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-8 md:p-12 overflow-hidden relative">
+            {/* Background decoration */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-x-1/2 translate-y-1/2"></div>
+
+            <div className="relative">
+              <div className="text-center mb-10">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-medium mb-6">
+                  <TrendingUp className="w-4 h-4" />
+                  Social Media Growth
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+                  Boost Your Social Media Presence
+                </h2>
+                <p className="text-lg text-purple-100 max-w-2xl mx-auto leading-relaxed">
+                  Get real followers, likes, views, and engagement across all major platforms.
+                  Affordable prices, instant delivery, and reliable results to grow your online presence.
+                </p>
+              </div>
+
+              {/* Platform grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
+                {smmPlatforms.map((platform) => (
+                  <div key={platform.name} className="bg-white/15 backdrop-blur-sm rounded-xl p-4">
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <ServiceIcon service={platform.name} size={24} colored={false} className="text-white" />
+                      <span className="font-semibold text-white">{platform.name}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {platform.items.map((item) => (
+                        <span key={item} className="px-2 py-0.5 bg-white/15 rounded-full text-xs text-purple-100">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Features row */}
+              <div className="flex flex-wrap justify-center gap-6 mb-10">
+                <div className="flex items-center gap-2 text-purple-100">
+                  <Zap className="w-5 h-5 text-white" />
+                  <span>Instant Delivery</span>
+                </div>
+                <div className="flex items-center gap-2 text-purple-100">
+                  <Shield className="w-5 h-5 text-white" />
+                  <span>Real Engagement</span>
+                </div>
+                <div className="flex items-center gap-2 text-purple-100">
+                  <CreditCard className="w-5 h-5 text-white" />
+                  <span>Pay in Naira</span>
+                </div>
+                <div className="flex items-center gap-2 text-purple-100">
+                  <RefreshCcw className="w-5 h-5 text-white" />
+                  <span>Refill Guarantee</span>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <Link
+                  to="/register"
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-white text-purple-600 font-semibold rounded-xl hover:bg-purple-50 transition-all text-lg shadow-lg"
+                >
+                  Explore SMM Services
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* eSIM Section */}
+      <section className="py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-3xl p-8 md:p-12 overflow-hidden relative">
             {/* Background decoration */}
@@ -826,7 +926,7 @@ export const LandingPage = () => {
               <div>
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-medium mb-6">
                   <Wifi className="w-4 h-4" />
-                  New Feature
+                  Global Connectivity
                 </div>
                 <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
                   Stay Connected Anywhere with eSIM
@@ -866,6 +966,70 @@ export const LandingPage = () => {
                     <MapPin className="w-4 h-4" />
                     <span>100+ countries covered</span>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* VPN Section */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-3xl p-8 md:p-12 overflow-hidden relative">
+            {/* Background decoration */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-x-1/2 translate-y-1/2"></div>
+
+            <div className="relative grid md:grid-cols-2 gap-8 items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-medium mb-6">
+                  <Shield className="w-4 h-4" />
+                  Online Privacy
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+                  Browse Securely with Premium VPN
+                </h2>
+                <p className="text-lg text-emerald-100 mb-6 leading-relaxed">
+                  Protect your privacy, bypass geo-restrictions, and browse the internet securely from anywhere in the world.
+                  Fast servers, zero logs, and affordable plans — all purchasable in Naira.
+                </p>
+                <ul className="space-y-2 mb-8">
+                  <li className="flex items-center gap-3 text-emerald-100">
+                    <CheckCircle className="w-5 h-5 text-white shrink-0" />
+                    <span>Ultra-fast servers in 50+ countries</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-emerald-100">
+                    <CheckCircle className="w-5 h-5 text-white shrink-0" />
+                    <span>Zero-log privacy policy</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-emerald-100">
+                    <CheckCircle className="w-5 h-5 text-white shrink-0" />
+                    <span>Works on all devices — phone, laptop, tablet</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-emerald-100">
+                    <CheckCircle className="w-5 h-5 text-white shrink-0" />
+                    <span>Unblock streaming, social media & more</span>
+                  </li>
+                </ul>
+                <Link
+                  to="/register"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white text-emerald-700 font-semibold rounded-xl hover:bg-emerald-50 transition-colors shadow-lg"
+                >
+                  Explore VPN Plans
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
+              </div>
+              <div className="hidden md:flex justify-center">
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-10 text-center">
+                  <Shield className="w-20 h-20 text-white mx-auto mb-4" />
+                  <div className="text-2xl font-bold text-white mb-1">Premium VPN</div>
+                  <div className="text-emerald-100 mb-4">Total Privacy. Pay in Naira.</div>
+                  <div className="flex items-center justify-center gap-2 text-sm text-emerald-100">
+                    <Lock className="w-4 h-4" />
+                    <span>50+ server locations</span>
+                  </div>
+                  <div className="mt-4 text-xs text-emerald-200">Available now on your dashboard</div>
                 </div>
               </div>
             </div>
@@ -1162,10 +1326,10 @@ export const LandingPage = () => {
       <section className="py-24" style={{ backgroundColor: 'var(--color-primary-500)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-5xl font-bold text-white mb-6">
-            Ready to start verifying?
+            Ready to grow your online presence?
           </h2>
           <p className="text-xl text-primary-100 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Join thousands of Nigerians who trust TonicsTools for fast, reliable, and affordable phone verification. Create your free account in 30 seconds.
+            Join thousands of Nigerians who trust TonicsTools for SMS verification, social media growth, eSIM data, and more. Create your free account in 30 seconds.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -1198,7 +1362,7 @@ export const LandingPage = () => {
                 <img src="/tonicstools_logo.png" alt="TonicsTools" className="h-10 brightness-0 invert" />
               </Link>
               <p className="text-gray-400 text-sm leading-relaxed mb-4">
-                Nigeria's most trusted platform for SMS verification and eSIM data plans. Fast, reliable, and affordable.
+                Nigeria's most trusted platform for SMS verification, social media growth, eSIM data, and VPN. Fast, reliable, and affordable.
               </p>
               <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
@@ -1224,13 +1388,18 @@ export const LandingPage = () => {
                 </li>
                 <li>
                   <Link to="/register" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    SMM Services
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/register" className="text-gray-400 hover:text-white text-sm transition-colors">
                     eSIM Plans
                   </Link>
                 </li>
                 <li>
-                  <a href="#services" className="text-gray-400 hover:text-white text-sm transition-colors">
-                    Supported Services
-                  </a>
+                  <Link to="/register" className="text-gray-400 hover:text-white text-sm transition-colors">
+                    VPN Plans
+                  </Link>
                 </li>
               </ul>
             </div>

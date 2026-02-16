@@ -205,19 +205,50 @@ class SmmManager
     }
 
     /**
-     * Calculate price with markup
+     * Calculate price with tiered markup
      */
     protected function calculatePriceWithMarkup(float $cost): float
     {
-        $markup = (float) Setting::getValue('smm_default_markup', config('smm.default_markup', 50));
-        $price = $cost * (1 + ($markup / 100));
-
-        // Convert USD to NGN (cost is already per 1000 from provider)
         $exchangeRate = app(ExchangeRateService::class)->getUsdToNgnRate();
-        $priceInNgn = $price * $exchangeRate;
+        $costInNgn = $cost * $exchangeRate;
+
+        // Get tier-appropriate markup based on NGN cost
+        $markup = $this->getMarkupForCost($costInNgn);
+        $priceInNgn = $costInNgn * (1 + ($markup / 100));
 
         // Cap at 99,999,999.99 to fit decimal(10,2) column
         return min(round($priceInNgn, 2), 99999999.99);
+    }
+
+    /**
+     * Get the appropriate markup percentage for a given cost in NGN
+     */
+    protected function getMarkupForCost(float $costInNgn): float
+    {
+        $tiers = json_decode(
+            Setting::getValue('smm_markup_tiers', '') ?? '',
+            true
+        );
+
+        if (!is_array($tiers) || empty($tiers)) {
+            // Fallback to flat default markup
+            return (float) Setting::getValue('smm_default_markup', config('smm.default_markup', 50));
+        }
+
+        // Sort tiers by threshold ascending
+        usort($tiers, fn($a, $b) => $a['threshold'] <=> $b['threshold']);
+
+        // Use the last tier whose threshold <= costInNgn
+        $markup = $tiers[0]['markup'];
+        foreach ($tiers as $tier) {
+            if ($costInNgn >= $tier['threshold']) {
+                $markup = $tier['markup'];
+            } else {
+                break;
+            }
+        }
+
+        return (float) $markup;
     }
 
     /**

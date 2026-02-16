@@ -15,8 +15,8 @@ return new class extends Migration
         // Add admin_notes column for fulfillment/rejection notes
         if (!Schema::hasColumn('smm_orders', 'admin_notes')) {
             Schema::table('smm_orders', function ($table) {
-                $table->text('admin_notes')->nullable()->after('status_message');
-                $table->timestamp('fulfilled_at')->nullable()->after('completed_at');
+                $table->text('admin_notes')->nullable();
+                $table->timestamp('fulfilled_at')->nullable();
             });
         }
     }

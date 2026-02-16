@@ -73,7 +73,7 @@ export const DashboardPage = () => {
       color: 'bg-purple-500',
     },
     {
-      name: 'SMM Services',
+      name: 'Boost Socials',
       description: 'Boost social media presence',
       icon: TrendingUp,
       href: '/smm',

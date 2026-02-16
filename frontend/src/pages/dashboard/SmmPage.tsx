@@ -638,7 +638,23 @@ export function SmmPage() {
                       setOrderForm({ ...orderForm, link: e.target.value });
                       setFormErrors({ ...formErrors, link: '' });
                     }}
-                    placeholder="https://instagram.com/username"
+                    placeholder={(() => {
+                      const icon = selectedService ? getServiceIcon(selectedService.name, selectedService.category?.name) : '';
+                      const placeholders: Record<string, string> = {
+                        instagram: 'https://instagram.com/username',
+                        facebook: 'https://facebook.com/page',
+                        twitter: 'https://twitter.com/username',
+                        youtube: 'https://youtube.com/watch?v=...',
+                        tiktok: 'https://tiktok.com/@username',
+                        telegram: 'https://t.me/channel',
+                        spotify: 'https://open.spotify.com/track/...',
+                        linkedin: 'https://linkedin.com/in/username',
+                        twitch: 'https://twitch.tv/username',
+                        reddit: 'https://reddit.com/r/subreddit',
+                        discord: 'https://discord.gg/invite',
+                      };
+                      return placeholders[icon] || 'https://example.com/your-link';
+                    })()}
                     className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all ${
                       formErrors.link ? 'border-red-500' : 'border-gray-200'
                     }`}

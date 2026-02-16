@@ -905,7 +905,7 @@ export const LandingPage = () => {
                   to="/register"
                   className="inline-flex items-center gap-2 px-8 py-4 bg-white text-purple-600 font-semibold rounded-xl hover:bg-purple-50 transition-all text-lg shadow-lg"
                 >
-                  Explore SMM Services
+                  Boost Your Socials
                   <ArrowRight className="w-5 h-5" />
                 </Link>
               </div>
@@ -1388,7 +1388,7 @@ export const LandingPage = () => {
                 </li>
                 <li>
                   <Link to="/register" className="text-gray-400 hover:text-white text-sm transition-colors">
-                    SMM Services
+                    Boost Socials
                   </Link>
                 </li>
                 <li>

@@ -2,12 +2,14 @@
 
 use App\Http\Controllers\Api\Admin\ESIMAdminController;
 use App\Http\Controllers\Api\Admin\ReferralAdminController;
+use App\Http\Controllers\Api\Admin\ShopAdminController;
 use App\Http\Controllers\Api\Admin\SmmAdminController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ESIMController;
 use App\Http\Controllers\Api\PhoneController;
 use App\Http\Controllers\Api\ReferralController;
+use App\Http\Controllers\Api\ShopController;
 use App\Http\Controllers\Api\SmmController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Webhooks\ZenditWebhookController;
@@ -134,6 +136,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/orders/{reference}/refresh', [SmmController::class, 'refreshOrderStatus']);
     });
 
+    // Shop (VPN) routes
+    Route::prefix('shop')->group(function () {
+        Route::get('/', [ShopController::class, 'index']);
+        Route::get('/orders', [ShopController::class, 'myOrders']);
+        Route::get('/orders/{order}', [ShopController::class, 'orderDetail']);
+        Route::get('/{product}', [ShopController::class, 'show']);
+        Route::post('/{product}/buy', [ShopController::class, 'purchase']);
+    });
+
     // Admin routes
     Route::prefix('admin')->middleware('admin')->group(function () {
         // Dashboard
@@ -203,6 +214,19 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/fulfillment-queue', [SmmAdminController::class, 'fulfillmentQueue']);
             Route::post('/orders/{order}/fulfill', [SmmAdminController::class, 'fulfillOrder']);
             Route::post('/orders/{order}/reject', [SmmAdminController::class, 'rejectOrder']);
+        });
+
+        // Shop Management
+        Route::prefix('shop')->group(function () {
+            Route::get('/dashboard', [ShopAdminController::class, 'dashboard']);
+            Route::get('/orders', [ShopAdminController::class, 'getOrders']);
+            Route::post('/orders/{order}/fulfill', [ShopAdminController::class, 'fulfillOrder']);
+            Route::post('/orders/{order}/fulfill-from-stock', [ShopAdminController::class, 'fulfillFromStock']);
+            Route::post('/orders/{order}/cancel', [ShopAdminController::class, 'cancelOrder']);
+            Route::get('/products', [ShopAdminController::class, 'getProducts']);
+            Route::post('/products', [ShopAdminController::class, 'createProduct']);
+            Route::put('/products/{product}', [ShopAdminController::class, 'updateProduct']);
+            Route::post('/products/{product}/stock', [ShopAdminController::class, 'addStock']);
         });
 
         // Payment Gateway Management

@@ -27,6 +27,7 @@ const adminNavigation = [
   { name: 'Services', href: '/admin/services', icon: Package },
   { name: 'eSIM Management', href: '/admin/esim', icon: Wifi },
   { name: 'SMM Panel', href: '/admin/smm', icon: TrendingUp },
+  { name: 'VPN Shop', href: '/admin/shop', icon: Shield },
   { name: 'Payment Gateways', href: '/admin/payment-gateways', icon: CreditCard },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];

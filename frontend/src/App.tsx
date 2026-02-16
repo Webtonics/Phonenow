@@ -38,6 +38,7 @@ import { ReferralsPage } from '@/pages/dashboard/ReferralsPage';
 import { ReferralsListPage } from '@/pages/dashboard/ReferralsListPage';
 import { CommissionsPage } from '@/pages/dashboard/CommissionsPage';
 import { SmmPage } from '@/pages/dashboard/SmmPage';
+import { ShopPage } from '@/pages/dashboard/ShopPage';
 
 // Admin pages
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
@@ -49,6 +50,7 @@ import { AdminSettingsPage } from '@/pages/admin/AdminSettingsPage';
 import { AdminESIMPage } from '@/pages/admin/AdminESIMPage';
 import { AdminSMMPage } from '@/pages/admin/AdminSMMPage';
 import { AdminPaymentGatewaysPage } from '@/pages/admin/AdminPaymentGatewaysPage';
+import { AdminShopPage } from '@/pages/admin/AdminShopPage';
 
 // Loading component
 const LoadingScreen = () => (
@@ -179,6 +181,7 @@ function AppRoutes() {
         <Route path="/referrals/list" element={<ReferralsListPage />} />
         <Route path="/referrals/commissions" element={<CommissionsPage />} />
         <Route path="/smm" element={<SmmPage />} />
+        <Route path="/shop" element={<ShopPage />} />
       </Route>
 
       {/* Admin routes */}
@@ -196,6 +199,7 @@ function AppRoutes() {
         <Route path="/admin/services" element={<AdminServicesPage />} />
         <Route path="/admin/esim" element={<AdminESIMPage />} />
         <Route path="/admin/smm" element={<AdminSMMPage />} />
+        <Route path="/admin/shop" element={<AdminShopPage />} />
         <Route path="/admin/payment-gateways" element={<AdminPaymentGatewaysPage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
       </Route>

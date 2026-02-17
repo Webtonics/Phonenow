@@ -200,9 +200,29 @@ class SmmController extends Controller
         $orders = $query->orderBy('created_at', 'desc')
             ->paginate($validated['per_page'] ?? 20);
 
+        $formatted = collect($orders->items())->map(fn($order) => [
+            'id' => $order->id,
+            'reference' => $order->reference,
+            'service' => [
+                'name' => $order->service->name ?? 'Unknown',
+                'category' => $order->service->category->name ?? 'Unknown',
+            ],
+            'link' => $order->link,
+            'quantity' => $order->quantity,
+            'amount' => (float) $order->amount,
+            'status' => $order->status,
+            'start_count' => $order->start_count,
+            'remains' => $order->remains,
+            'progress' => $order->getProgressPercentage(),
+            'created_at' => $order->created_at,
+            'completed_at' => $order->completed_at,
+            'fulfilled_at' => $order->fulfilled_at,
+            'admin_notes' => $order->admin_notes,
+        ]);
+
         return response()->json([
             'success' => true,
-            'data' => $orders->items(),
+            'data' => $formatted,
             'meta' => [
                 'current_page' => $orders->currentPage(),
                 'last_page' => $orders->lastPage(),

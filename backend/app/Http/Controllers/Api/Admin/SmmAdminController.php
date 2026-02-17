@@ -138,9 +138,35 @@ class SmmAdminController extends Controller
         $orders = $query->orderBy('created_at', 'desc')
             ->paginate($request->per_page ?? 50);
 
+        $formatted = collect($orders->items())->map(fn($order) => [
+            'id' => $order->id,
+            'reference' => $order->reference,
+            'user' => [
+                'id' => $order->user->id,
+                'name' => $order->user->name,
+                'email' => $order->user->email,
+            ],
+            'service' => [
+                'name' => $order->service->name ?? 'Unknown',
+                'category' => $order->service->category->name ?? 'Unknown',
+            ],
+            'link' => $order->link,
+            'quantity' => $order->quantity,
+            'amount' => (float) $order->amount,
+            'cost' => $order->cost,
+            'status' => $order->status,
+            'progress' => $order->getProgressPercentage(),
+            'start_count' => $order->start_count,
+            'remains' => $order->remains,
+            'provider_order_id' => $order->provider_order_id,
+            'admin_notes' => $order->admin_notes,
+            'created_at' => $order->created_at,
+            'completed_at' => $order->completed_at,
+        ]);
+
         return response()->json([
             'success' => true,
-            'data' => $orders->items(),
+            'data' => $formatted,
             'meta' => [
                 'current_page' => $orders->currentPage(),
                 'last_page' => $orders->lastPage(),
@@ -293,9 +319,35 @@ class SmmAdminController extends Controller
             ->orderBy('created_at', 'asc')
             ->paginate($request->per_page ?? 50);
 
+        $formatted = collect($orders->items())->map(fn($order) => [
+            'id' => $order->id,
+            'reference' => $order->reference,
+            'user' => [
+                'id' => $order->user->id,
+                'name' => $order->user->name,
+                'email' => $order->user->email,
+            ],
+            'service' => [
+                'name' => $order->service->name ?? 'Unknown',
+                'category' => $order->service->category->name ?? 'Unknown',
+            ],
+            'link' => $order->link,
+            'quantity' => $order->quantity,
+            'amount' => (float) $order->amount,
+            'cost' => $order->cost,
+            'status' => $order->status,
+            'progress' => $order->getProgressPercentage(),
+            'start_count' => $order->start_count,
+            'remains' => $order->remains,
+            'provider_order_id' => $order->provider_order_id,
+            'admin_notes' => $order->admin_notes,
+            'created_at' => $order->created_at,
+            'completed_at' => $order->completed_at,
+        ]);
+
         return response()->json([
             'success' => true,
-            'data' => $orders->items(),
+            'data' => $formatted,
             'meta' => [
                 'current_page' => $orders->currentPage(),
                 'last_page' => $orders->lastPage(),

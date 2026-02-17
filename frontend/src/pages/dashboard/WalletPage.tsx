@@ -21,9 +21,9 @@ import { walletService, getErrorMessage } from '@/services';
 import type { Transaction, PaymentMethod } from '@/types';
 
 const gatewayDisplay: Record<string, { label: string; subtitle: string }> = {
-  flutterwave: { label: 'Express Pay', subtitle: 'Cards, Bank Transfer & USSD' },
-  korapay: { label: 'Secure Pay', subtitle: 'Cards, Bank Transfer & USSD' },
-  cryptomus: { label: 'Crypto Pay', subtitle: 'Bitcoin, USDT & more' },
+  flutterwave: { label: 'Pay with Card', subtitle: 'Visa, Mastercard, Bank Transfer & USSD' },
+  korapay: { label: 'Pay with Bank', subtitle: 'Direct Bank Transfer & USSD' },
+  cryptomus: { label: 'Pay with Crypto', subtitle: 'Bitcoin, USDT, Ethereum & more' },
 };
 
 export const WalletPage = () => {

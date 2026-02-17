@@ -438,12 +438,23 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        // Get total spent (only successful/completed orders)
-        $totalSpent = \App\Models\Order::where('user_id', $user->id)
+        // Get total spent across ALL features (using wallet debit transactions)
+        $totalSpent = \App\Models\Transaction::where('user_id', $user->id)
+            ->where('type', 'debit')
             ->where('status', 'completed')
-            ->sum('amount_paid');
+            ->sum('amount');
 
-        // Get order stats
+        // Get total refunded
+        $totalRefunded = \App\Models\Transaction::where('user_id', $user->id)
+            ->where('type', 'credit')
+            ->where('status', 'completed')
+            ->where('description', 'like', '%refund%')
+            ->sum('amount');
+
+        // Net spent = debits - refunds
+        $netSpent = max(0, $totalSpent - $totalRefunded);
+
+        // Get order stats (phone numbers)
         $totalOrders = \App\Models\Order::where('user_id', $user->id)->count();
         $activeOrders = \App\Models\Order::where('user_id', $user->id)
             ->whereIn('status', ['pending', 'processing'])
@@ -455,10 +466,10 @@ class AuthController extends Controller
         // Get SMM stats
         $smmOrders = \App\Models\SmmOrder::where('user_id', $user->id)->count();
         $smmSpent = \App\Models\SmmOrder::where('user_id', $user->id)
-            ->where('status', 'completed')
+            ->whereIn('status', ['completed', 'awaiting_fulfillment', 'processing', 'in_progress'])
             ->sum('amount');
         $smmActive = \App\Models\SmmOrder::where('user_id', $user->id)
-            ->whereIn('status', ['pending', 'processing', 'in_progress'])
+            ->whereIn('status', ['pending', 'processing', 'in_progress', 'awaiting_fulfillment'])
             ->count();
 
         // Get recent orders
@@ -480,7 +491,7 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'total_spent' => (float) $totalSpent,
+                'total_spent' => (float) $netSpent,
                 'total_orders' => $totalOrders,
                 'active_orders' => $activeOrders,
                 'completed_orders' => $completedOrders,

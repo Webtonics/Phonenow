@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /wallet
+Disallow: /phone-numbers
+Disallow: /orders
+Disallow: /profile
+Disallow: /esim/my-profiles
+Disallow: /referrals
+Disallow: /smm
+Disallow: /shop
+Disallow: /admin
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /forgot-password
+
+Sitemap: https://tonicstools.com/sitemap.xml

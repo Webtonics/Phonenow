@@ -2,6 +2,10 @@
   RewriteEngine On
   RewriteBase /
 
+  # Serve sitemap and robots directly
+  RewriteRule ^sitemap\.xml$ sitemap.xml [L]
+  RewriteRule ^robots\.txt$ robots.txt [L]
+
   # Don't rewrite files or directories
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
@@ -11,6 +15,12 @@
 
   # Rewrite everything else to index.html for React Router
   RewriteRule ^ index.html [L]
+</IfModule>
+
+# Correct MIME types for sitemap and robots
+<IfModule mod_mime.c>
+  AddType application/xml .xml
+  AddType text/plain .txt
 </IfModule>
 
 # Enable gzip compression

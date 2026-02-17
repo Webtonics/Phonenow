@@ -47,14 +47,17 @@ Route::get('/phone/test-provider', [PhoneController::class, 'testProvider']);
 Route::get('/phone/providers', [PhoneController::class, 'getProviders']);
 Route::post('/phone/clear-cache', [PhoneController::class, 'clearCache']);
 
-// Protected routes
-Route::middleware('auth:sanctum')->group(function () {
-    // Auth routes
+// Auth routes (no email verification needed)
+Route::middleware('auth:sanctum')->prefix('auth')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', [AuthController::class, 'user']);
+    Route::post('/resend-verification', [AuthController::class, 'resendVerification']);
+});
+
+// Protected routes (auth + email verification required)
+Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::prefix('auth')->group(function () {
-        Route::post('/logout', [AuthController::class, 'logout']);
-        Route::get('/user', [AuthController::class, 'user']);
         Route::get('/dashboard', [AuthController::class, 'dashboard']);
-        Route::post('/resend-verification', [AuthController::class, 'resendVerification']);
         Route::put('/profile', [AuthController::class, 'updateProfile']);
         Route::put('/password', [AuthController::class, 'changePassword']);
     });

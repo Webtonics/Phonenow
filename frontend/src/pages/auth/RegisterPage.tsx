@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, CheckCircle, XCircle, Gift, Users } from 'lucide-react';
+import { Eye, EyeOff, Loader2, CheckCircle, XCircle, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/stores/AuthContext';
 import { getErrorMessage } from '@/services';
 
@@ -47,6 +47,7 @@ export const RegisterPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [referralCode, setReferralCode] = useState<string>('');
+  const [showReferralField, setShowReferralField] = useState(false);
 
   const {
     register,
@@ -66,6 +67,7 @@ export const RegisterPage = () => {
     if (refFromUrl) {
       setReferralCode(refFromUrl);
       setValue('ref', refFromUrl);
+      setShowReferralField(true);
     }
   }, [searchParams, setValue]);
 
@@ -107,30 +109,6 @@ export const RegisterPage = () => {
           Join thousands of users worldwide
         </p>
       </div>
-
-      {/* Referral Bonus Banner */}
-      {referralCode && (
-        <div className="mb-6 bg-gradient-to-r from-secondary-50 to-secondary-100 border border-secondary-200 rounded-xl p-4">
-          <div className="flex items-start space-x-3">
-            <div className="w-10 h-10 bg-secondary-500 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Gift className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-secondary-900 mb-1 flex items-center">
-                <Users className="w-4 h-4 mr-1.5" />
-                Referral Bonus Applied!
-              </h3>
-              <p className="text-sm text-secondary-700">
-                You'll receive <span className="font-bold">₦500 signup bonus</span> after verifying your email.
-                Your friend earns <span className="font-bold">10% commission</span> on your first 3 purchases!
-              </p>
-              <p className="text-xs text-secondary-600 mt-2">
-                Referral Code: <span className="font-mono font-semibold">{referralCode}</span>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div>
@@ -273,25 +251,38 @@ export const RegisterPage = () => {
           )}
         </div>
 
-        {/* Manual Referral Code Input (if not from URL) */}
-        {!referralCode && (
-          <div>
-            <label htmlFor="ref" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Referral Code <span className="text-gray-500 font-normal">(Optional)</span>
-            </label>
-            <input
-              id="ref"
-              type="text"
-              {...register('ref')}
-              className="input"
-              placeholder="Enter referral code to get ₦500 bonus"
-              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-            />
-            <p className="mt-1.5 text-xs text-gray-500">
-              Have a referral code? Enter it to receive a ₦500 signup bonus!
-            </p>
-          </div>
-        )}
+        {/* Referral Code (collapsible) */}
+        <div>
+          {!showReferralField ? (
+            <button
+              type="button"
+              onClick={() => setShowReferralField(true)}
+              className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+            >
+              <ChevronDown className="w-4 h-4" />
+              Have a referral code?
+            </button>
+          ) : (
+            <div>
+              <label htmlFor="ref" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Referral Code
+              </label>
+              <input
+                id="ref"
+                type="text"
+                {...register('ref')}
+                className="input"
+                placeholder="Enter referral code"
+                value={referralCode}
+                onChange={(e) => {
+                  const val = e.target.value.toUpperCase();
+                  setReferralCode(val);
+                  setValue('ref', val);
+                }}
+              />
+            </div>
+          )}
+        </div>
 
         <button
           type="submit"

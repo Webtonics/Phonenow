@@ -23,7 +23,7 @@ import { useState } from 'react';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Wallet', href: '/wallet', icon: Wallet },
-  { name: 'Phone Numbers', href: '/phone-numbers', icon: Phone },
+  { name: 'SMS Verification', href: '/phone-numbers', icon: Phone },
   { name: 'Boost Socials', href: '/smm', icon: TrendingUp },
   { name: 'VPN Shop', href: '/shop', icon: Shield },
   { name: 'eSIM Packages', href: '/esim/packages', icon: Wifi },

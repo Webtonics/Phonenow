@@ -59,7 +59,7 @@ export const DashboardPage = () => {
 
   const quickActions = [
     {
-      name: 'Buy Phone Number',
+      name: 'SMS Verification',
       description: 'Get instant verification codes',
       icon: Phone,
       href: '/phone-numbers',

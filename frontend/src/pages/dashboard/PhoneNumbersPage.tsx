@@ -433,8 +433,8 @@ export const PhoneNumbersPage = () => {
               <Phone className="w-6 h-6 sm:w-8 sm:h-8" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1 sm:mb-2">Buy Phone Numbers</h1>
-              <p className="text-primary-100 text-sm sm:text-base md:text-lg">Get instant temporary numbers for SMS verification</p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1 sm:mb-2">SMS Verification</h1>
+              <p className="text-primary-100 text-sm sm:text-base md:text-lg">Get instant temporary numbers to verify your accounts</p>
             </div>
           </div>
 

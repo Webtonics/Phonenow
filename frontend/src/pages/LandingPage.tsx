@@ -1383,7 +1383,7 @@ export const LandingPage = () => {
                 </li>
                 <li>
                   <Link to="/register" className="text-gray-400 hover:text-white text-sm transition-colors">
-                    Phone Numbers
+                    SMS Verification
                   </Link>
                 </li>
                 <li>

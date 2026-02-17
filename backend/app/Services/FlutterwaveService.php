@@ -43,8 +43,8 @@ class FlutterwaveService
                 'phonenumber' => $user->phone,
             ],
             'customizations' => [
-                'title' => 'TonicsTools Wallet Funding',
-                'description' => 'Add funds to your TonicsTools wallet',
+                'title' => 'Webtonics LTD',
+                'description' => 'Fund your wallet',
                 'logo' => config('app.url') . '/logo.png',
             ],
             'meta' => [

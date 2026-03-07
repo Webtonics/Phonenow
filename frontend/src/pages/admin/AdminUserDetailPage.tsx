@@ -36,10 +36,6 @@ const ROLE_COLORS = {
 const TXN_TYPE_COLORS: Record<string, string> = {
   credit: 'text-green-600',
   debit: 'text-red-600',
-  deposit: 'text-green-600',
-  withdrawal: 'text-red-600',
-  purchase: 'text-orange-600',
-  refund: 'text-blue-600',
 };
 
 const ORDER_STATUS_COLORS: Record<string, string> = {
@@ -513,7 +509,7 @@ export const AdminUserDetailPage = () => {
                         </div>
                         <div className="text-right ml-4 shrink-0">
                           <p className={`text-sm font-semibold ${TXN_TYPE_COLORS[txn.type] ?? 'text-gray-700'}`}>
-                            {txn.type === 'debit' || txn.type === 'withdrawal' || txn.type === 'purchase' ? '-' : '+'}
+                            {txn.type === 'debit' ? '-' : '+'}
                             ₦{Number(txn.amount).toLocaleString()}
                           </p>
                           <span className={`text-xs px-1.5 py-0.5 rounded-full ${

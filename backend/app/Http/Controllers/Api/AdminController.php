@@ -332,7 +332,7 @@ class AdminController extends Controller
         ]);
 
         $amount = $validated['amount'];
-        $type = $amount >= 0 ? 'credit' : 'debit';
+        $balanceBefore = (float) $user->balance;
 
         DB::beginTransaction();
 
@@ -349,20 +349,19 @@ class AdminController extends Controller
                 $user->deductBalance(abs($amount));
             }
 
+            $balanceAfter = (float) $user->fresh()->balance;
+
             // Create transaction record
             Transaction::create([
-                'user_id' => $user->id,
-                'type' => $amount >= 0 ? 'deposit' : 'withdrawal',
-                'amount' => abs($amount),
-                'currency' => 'NGN',
-                'status' => 'completed',
-                'reference' => Transaction::generateReference(),
-                'description' => "Admin adjustment: {$validated['reason']}",
-                'payment_method' => 'admin',
-                'metadata' => [
-                    'adjusted_by' => request()->user()->id,
-                    'reason' => $validated['reason'],
-                ],
+                'user_id'        => $user->id,
+                'type'           => $amount >= 0 ? 'credit' : 'debit',
+                'amount'         => abs($amount),
+                'balance_before' => $balanceBefore,
+                'balance_after'  => $balanceAfter,
+                'status'         => 'completed',
+                'reference'      => Transaction::generateReference(),
+                'description'    => "Admin adjustment: {$validated['reason']}",
+                'payment_method' => 'admin_credit',
             ]);
 
             DB::commit();

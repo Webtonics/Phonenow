@@ -55,6 +55,7 @@ class FlutterwaveService
         $startTime = microtime(true);
 
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->secretKey,
                 'Content-Type' => 'application/json',
@@ -128,6 +129,7 @@ class FlutterwaveService
         $startTime = microtime(true);
 
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->secretKey,
             ])->get($this->baseUrl . '/transactions/' . $transactionId . '/verify');
@@ -186,6 +188,7 @@ class FlutterwaveService
         $startTime = microtime(true);
 
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->secretKey,
             ])->get($this->baseUrl . '/transactions/verify_by_reference', [

@@ -74,6 +74,29 @@ export const adminService = {
   },
 
   /**
+   * Create user
+   */
+  createUser: async (data: {
+    name: string;
+    email: string;
+    phone?: string;
+    role?: 'customer' | 'reseller' | 'admin';
+    password: string;
+    balance?: number;
+  }): Promise<ApiResponse<User>> => {
+    const response = await api.post('/admin/users', data);
+    return response.data;
+  },
+
+  /**
+   * Delete user
+   */
+  deleteUser: async (userId: number): Promise<ApiResponse<null>> => {
+    const response = await api.delete(`/admin/users/${userId}`);
+    return response.data;
+  },
+
+  /**
    * Update user
    */
   updateUser: async (userId: number, data: {

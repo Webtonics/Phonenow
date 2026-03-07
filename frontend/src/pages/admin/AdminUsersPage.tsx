@@ -9,10 +9,146 @@ import {
   Eye,
   ToggleLeft,
   ToggleRight,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services';
 import { User } from '@/types';
+
+// ── Create User Modal ────────────────────────────────────────────────────────
+interface CreateUserModalProps {
+  onClose: () => void;
+  onCreated: (user: User) => void;
+}
+
+const CreateUserModal = ({ onClose, onCreated }: CreateUserModalProps) => {
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'customer' as User['role'],
+    password: '',
+    balance: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const response = await adminService.createUser({
+        name: form.name,
+        email: form.email,
+        phone: form.phone || undefined,
+        role: form.role,
+        password: form.password,
+        balance: form.balance ? parseFloat(form.balance) : undefined,
+      });
+      if (response.success) {
+        toast.success('User created successfully');
+        onCreated(response.data);
+      } else {
+        toast.error(response.message || 'Failed to create user');
+      }
+    } catch {
+      toast.error('Failed to create user');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b sticky top-0 bg-white">
+          <h2 className="text-lg font-semibold text-gray-900">Create New User</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="input-field w-full"
+              placeholder="John Doe"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="input-field w-full"
+              placeholder="john@example.com"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input
+              type="text"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              className="input-field w-full"
+              placeholder="+234..."
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="input-field w-full"
+              placeholder="Min. 8 characters"
+              minLength={8}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <select
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value as User['role'] })}
+              className="input-field w-full"
+            >
+              <option value="customer">Customer</option>
+              <option value="reseller">Reseller</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Starting Balance (₦) <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.balance}
+              onChange={(e) => setForm({ ...form, balance: e.target.value })}
+              className="input-field w-full"
+              placeholder="0.00"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-outline flex-1">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Create User'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 export const AdminUsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -21,6 +157,7 @@ export const AdminUsersPage = () => {
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [createOpen, setCreateOpen] = useState(false);
   const [total, setTotal] = useState(0);
 
   const fetchUsers = async () => {
@@ -73,8 +210,16 @@ export const AdminUsersPage = () => {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">User Management</h1>
-        <span className="text-sm text-gray-500">{total} total users</span>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">User Management</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{total} total users</p>
+        </div>
+        <button
+          onClick={() => setCreateOpen(true)}
+          className="btn-primary flex items-center gap-2 self-start sm:self-auto"
+        >
+          <UserPlus className="w-4 h-4" /> New User
+        </button>
       </div>
 
       {/* Filters */}
@@ -243,6 +388,17 @@ export const AdminUsersPage = () => {
           </div>
         )}
       </div>
+
+      {createOpen && (
+        <CreateUserModal
+          onClose={() => setCreateOpen(false)}
+          onCreated={(newUser) => {
+            setUsers((prev) => [newUser, ...prev]);
+            setTotal((t) => t + 1);
+            setCreateOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

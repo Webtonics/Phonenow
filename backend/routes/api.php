@@ -155,8 +155,10 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
         // User management
         Route::get('/users', [AdminController::class, 'getUsers']);
+        Route::post('/users', [AdminController::class, 'createUser']);
         Route::get('/users/{id}', [AdminController::class, 'getUser']);
         Route::put('/users/{id}', [AdminController::class, 'updateUser']);
+        Route::delete('/users/{id}', [AdminController::class, 'deleteUser']);
         Route::post('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus']);
         Route::post('/users/{id}/adjust-balance', [AdminController::class, 'adjustUserBalance']);
 

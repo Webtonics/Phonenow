@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\ExchangeRateService;
+use Illuminate\Support\Facades\Hash;
 use App\Services\FlutterwaveService;
 use App\Services\CryptomusService;
 use App\Services\KorapayService;
@@ -163,6 +164,38 @@ class AdminController extends Controller
     }
 
     /**
+     * Create a new user
+     */
+    public function createUser(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name'     => ['required', 'string', 'max:255'],
+            'email'    => ['required', 'email', 'unique:users,email'],
+            'phone'    => ['sometimes', 'nullable', 'string', 'max:20', 'unique:users,phone'],
+            'role'     => ['sometimes', 'in:customer,reseller,admin'],
+            'password' => ['required', 'string', 'min:8'],
+            'balance'  => ['sometimes', 'numeric', 'min:0'],
+        ]);
+
+        $user = User::create([
+            'name'           => $validated['name'],
+            'email'          => $validated['email'],
+            'phone'          => $validated['phone'] ?? null,
+            'role'           => $validated['role'] ?? 'customer',
+            'password'       => Hash::make($validated['password']),
+            'balance'        => $validated['balance'] ?? 0,
+            'is_active'      => true,
+            'email_verified_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User created successfully.',
+            'data'    => $user,
+        ], 201);
+    }
+
+    /**
      * Get single user details
      */
     public function getUser(string $id): JsonResponse
@@ -213,6 +246,44 @@ class AdminController extends Controller
             'success' => true,
             'message' => 'User updated successfully.',
             'data' => $user,
+        ]);
+    }
+
+    /**
+     * Delete a user
+     */
+    public function deleteUser(Request $request, string $id): JsonResponse
+    {
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        // Prevent deleting yourself
+        if ($request->user()->id == $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot delete your own account.',
+            ], 403);
+        }
+
+        // Prevent deleting users with non-zero balance
+        if ($user->balance > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete a user with remaining wallet balance. Clear the balance first.',
+            ], 400);
+        }
+
+        $user->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User deleted successfully.',
         ]);
     }
 

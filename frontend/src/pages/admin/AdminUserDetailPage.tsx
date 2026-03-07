@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Mail,
@@ -17,6 +17,7 @@ import {
   CheckCircle,
   XCircle,
   X,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminService } from '@/services';
@@ -264,12 +265,14 @@ const AdjustBalanceModal = ({ user, mode, onClose, onAdjusted }: AdjustBalanceMo
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export const AdminUserDetailPage = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [user, setUser] = useState<UserWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'transactions' | 'orders'>('transactions');
   const [editOpen, setEditOpen] = useState(false);
   const [balanceModal, setBalanceModal] = useState<'add' | 'remove' | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -289,6 +292,25 @@ export const AdminUserDetailPage = () => {
       }
     })();
   }, [id]);
+
+  const handleDelete = async () => {
+    if (!user) return;
+    if (!window.confirm(`Delete ${user.name}? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const response = await adminService.deleteUser(user.id);
+      if (response.success) {
+        toast.success('User deleted');
+        navigate('/admin/users');
+      } else {
+        toast.error(response.message || 'Failed to delete user');
+      }
+    } catch {
+      toast.error('Failed to delete user');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleToggleStatus = async () => {
     if (!user) return;
@@ -330,14 +352,24 @@ export const AdminUserDetailPage = () => {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link to="/admin/users" className="btn-outline p-2">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{user.name}</h1>
-          <p className="text-sm text-gray-500">User #{user.id}</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link to="/admin/users" className="btn-outline p-2">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{user.name}</h1>
+            <p className="text-sm text-gray-500">User #{user.id}</p>
+          </div>
         </div>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 border border-red-200 rounded-lg transition disabled:opacity-60"
+        >
+          {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+          Delete User
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

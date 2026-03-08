@@ -18,7 +18,7 @@ import {
   Users,
   TrendingUp,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -37,6 +37,19 @@ export const MainLayout = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [avatarDropdownOpen, setAvatarDropdownOpen] = useState(false);
+  const avatarRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) {
+        setAvatarDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -69,7 +82,7 @@ export const MainLayout = () => {
       >
         {/* Logo & Close Button - Fixed Header */}
         <div
-          className="flex items-center justify-between px-5 h-16 shrink-0 border-b border-[var(--color-sidebar-border)]"
+          className="flex items-center justify-between px-5 h-16 shrink-0 border-b border-(--color-sidebar-border)"
         >
           <Link to="/dashboard" className="flex items-center gap-2">
             <img src="/tonicstools_logo.png" alt="TonicsTools" className="h-9 brightness-0 invert" />
@@ -168,14 +181,23 @@ export const MainLayout = () => {
                   <span>Admin Panel</span>
                 </Link>
               )}
+
+              {/* Logout — inside scroll area on mobile so it's always reachable */}
+              <div className="lg:hidden pt-2 mt-2 border-t border-(--color-sidebar-border)">
+                <button
+                  onClick={handleLogout}
+                  className="sidebar-nav-item w-full text-error-400 hover:text-error-300"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>Log Out</span>
+                </button>
+              </div>
             </div>
           </nav>
         </div>
 
-        {/* Logout Button - Fixed Footer */}
-        <div
-          className="px-3 py-3 shrink-0 border-t border-[var(--color-sidebar-border)]"
-        >
+        {/* Logout Button - Fixed Footer (desktop only) */}
+        <div className="hidden lg:block px-3 py-3 shrink-0 border-t border-(--color-sidebar-border)">
           <button
             onClick={handleLogout}
             className="sidebar-nav-item w-full text-error-400 hover:text-error-300"
@@ -262,12 +284,50 @@ export const MainLayout = () => {
               {/* Logo */}
               <img src="/tonicstools_logo.png" alt="TonicsTools" className="h-8" />
 
-              {/* User avatar */}
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                style={{ backgroundColor: 'var(--color-primary-500)' }}
-              >
-                {getInitials(user?.name || '')}
+              {/* User avatar with dropdown */}
+              <div ref={avatarRef} className="relative">
+                <button
+                  onClick={() => setAvatarDropdownOpen((o) => !o)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  style={{ backgroundColor: 'var(--color-primary-500)' }}
+                >
+                  {getInitials(user?.name || '')}
+                </button>
+
+                {avatarDropdownOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-44 rounded-xl shadow-lg border py-1 z-50"
+                    style={{
+                      backgroundColor: 'var(--color-card-bg)',
+                      borderColor: 'var(--color-border)',
+                    }}
+                  >
+                    <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                      <p className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                        {user?.name}
+                      </p>
+                      <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
+                        {user?.email}
+                      </p>
+                    </div>
+                    <Link
+                      to="/profile"
+                      onClick={() => setAvatarDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      <User className="w-4 h-4" />
+                      Profile
+                    </Link>
+                    <button
+                      onClick={() => { setAvatarDropdownOpen(false); handleLogout(); }}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm w-full text-left transition-colors hover:bg-red-50 text-red-600"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Log Out
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </header>
